@@ -1,0 +1,46 @@
+{
+    // IMPORTANT: Set these values before starting your project. The markdown generation process
+    // follows the same rules as directory creation from a markdown file. To familiarize yourself
+    // with the formatting, start by generating a markdown file from an existing directory. This
+    // ensures you can replicate the format when building a directory from markdown.
+
+    // NOTE: The markdown file must be saved in the same directory as the project files to be 
+    // generated or read. If building markdown from existing files, save an empty markdown file 
+    // (e.g., <your_project_name>.md) in the target directory. Open the .md file in Sublime Text 
+    // and select:
+    // - "Build Directory 2 Markdown" (to generate markdown from files)
+    // - "Build Markdown 2 Directory" (to generate files from markdown)
+
+    "file_naming_convention": "on_fence", // Options are: "on_fence", "before_fence", "after_fence" 
+    // Examples:
+    // path_and_filename/before_fence.cpp   // node: the line contains only the path and filename
+    // ```path_and_filename/on_fence.cpp    // note: line begins with the the code fence
+    // // path_and_filename/after_fence.cpp // note: is first line after fence and is commented
+
+    "blocks_ignored": ["ext_bash", "ext_lua", "lessthan_3", "nameless"], // Configure as needed:
+    // - "ext_<ext>" - Ignores blocks with the specified extension (e.g., "ext_bash").
+    // - "lessthan_<N>" - Ignores code blocks smaller than N lines (default: 3).
+    //      Note: Setting this to 0 has the same effect as removing it.
+    // Additional options:
+    // - "nameless" - Ignores unnamed code blocks.
+    // - "none" - Includes all blocks regardless of other settings.
+    //      Note: Nameless files are named <N>.<ext>, where N is the first non-conflicting integer
+    //      found, and <ext> is derived from the code fence or defaults to '.o'.
+    // - "conflicts" - Ignores files that already exist.
+    // - "new" - Ignores code blocks without corresponding existing files.
+
+    "attempt_injection": true, // Ignored if "blocks_ignored" includes "conflicts". Options:
+    // - true: Conflicts are treated as injectable. The plugin searches for matching start and 
+    //      end lines of code in the existing file to determine where to insert/replace the block.
+    //      Replaced code is commented out, not removed, with the new block prepended.
+    // - false: Conflicts are handled according to "handle_file_conflicts".
+
+    "handle_file_conflicts": "prepend_and_comment" // Ignored if "blocks_ignored" includes
+    // "conflicts". Options:
+    // - "prepend_and_comment": Adds the code block to the start of the file and comments out the
+    //      existing content using '//', '#', or ';', depending on the file type.
+    // - "append_n_to_filename": Appends (n) to the filename for new files to avoid conflicts.
+    // - "append_oN_to_ext": Adds ".oN" to the file extension, where N is the next available number.
+    // - "move_to_backup_dir": Moves the conflicting file to a "backup" folder within the directory
+    //      and appends (N) to its filename if necessary.
+}

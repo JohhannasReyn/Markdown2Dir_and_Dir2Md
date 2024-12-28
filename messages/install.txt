@@ -1,0 +1,47 @@
+Markdown2Dir
+------------
+
+This Sublime Text plugin streamlines the process of working with Markdown files and their associated directories. With **Markdown2Dir**, you can seamlessly extract all code blocks from a Markdown file into individual files within the directory or combine directory contents into a single Markdown file for collaborative editing. Whether you're working on AI projects or just need a faster workflow, this plugin aims to expedite your development process.
+
+### Licensing Options
+For collaborative features that enable this plugin to work in shared folders, network directories, server directories, or GitHub repositories, a **paid license** is required. To request a license, please email: `JohhannasReyn@gmail.com` with the subject: **Markdown2Dir Licensing Request**.
+
+#### Licensing Tiers:
+- **Small Teams** (2-5 users): $5/user per month
+- **Medium Teams** (6-10 users): $10/user per month
+- **Large Teams** (11-20 users): $15/user per month
+- **Corporate License** (21+ users): $20/user per month
+
+Subscription-based licenses include regular updates and maintenance. One-time licenses are available upon request.
+
+### Usage Options
+
+- **Directory to Markdown**: Extract code blocks from a Markdown file and save them as individual files in the same directory.
+- **Markdown to Directory**: Update a Markdown file by reinserting code blocks from files within the directory.
+
+### Key Bindings
+Suggested key bindings:
+- `Ctrl+Alt+M`: Trigger "Directory to Markdown"
+- `Alt+Shift+M`: Trigger "Markdown to Directory"
+
+These can be enabled or customized in the Sublime keymap file: `Default (<your OS>).sublime-keymap`.
+
+### Plugin Settings
+Available options in `Markdown2Dir.sublime-settings`:
+
+- **File Naming Convention**: Customize how filenames are generated for code blocks.
+- **Ignored Blocks**: Specify blocks or extensions to exclude during extraction.
+- **Conflict Handling**: Define how file conflicts are resolved (e.g., prepend comments, append unique identifiers, etc.).
+
+### Support
+If you encounter any issues or discover a bug, please reach out:
+
+#### Email:
+`johnreyn.developer@gmail.com`
+
+#### Social Media:
+- [LinkedIn](https://www.linkedin.com/in/johhannas-reyn)
+- [GitHub](https://github.com/JohhannasReyn)
+
+We hope **Markdown2Dir** enhances your workflow. Your feedback and suggestions are always welcome!
+

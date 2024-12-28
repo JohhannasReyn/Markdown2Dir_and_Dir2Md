@@ -1,0 +1,28 @@
+/**
+ *  To implement this package in Sublime Text's context menu,
+ * uncomment the code below and copy & paste it into the file
+ * that corresponds to the file that shares the same name in
+ * the Sublime Text AppData folder.
+ */
+/*
+[
+    { "caption": "-" },
+    {
+        "caption": "Directory 2 Markdown",
+        "command": "dir2_markdown",
+        "context": [
+            { "key": "selector", "operator": "equal", "operand": "text.markdown" },
+            { "key": "file_name", "operator": "regex_match", "operand": ".*\\.(md|markdown|mdown|mkd|mkdn|txt)$", "match_all": true }
+        ]
+    },
+    {
+        "caption": "Markdown 2 Directory",
+        "command": "markdown2_dir",
+        "context": [
+            { "key": "selector", "operator": "equal", "operand": "text.markdown" },
+            { "key": "file_name", "operator": "regex_match", "operand": ".*\\.(md|markdown|mdown|mkd|mkdn|txt)$", "match_all": true }
+        ]
+    },
+    { "caption": "-" }
+]
+*/

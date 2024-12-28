@@ -1,0 +1,52 @@
+[
+    {
+        "caption": "File",
+        "mnemonic": "F",
+        "id": "file",
+        "children": [
+            {
+                "caption": "Build Directory From Markdown",
+                "command": "markdown2_dir"
+            },
+            {
+                "caption": "Build Markdown From Directory",
+                "command": "dir2_markdown"
+            }
+        ]
+    },
+    {
+        "caption": "Preferences",
+        "mnemonic": "P",
+        "id": "preferences",
+        "children": [
+            {
+                "caption": "Package Settings",
+                "mnemonic": "k",
+                "id": "package-settings",
+                "children": [
+                    {
+                        "caption": "Markdown2Dir",
+                        "children": [
+                            {
+                                "caption": "Settings",
+                                "command": "edit_settings",
+                                "args": {
+                                    "base_file": "${packages}/Markdown2Dir/Markdown2Dir.sublime-settings",
+                                    "user_file": "${packages}/User/Markdown2Dir.sublime-settings"
+                                }
+                            },
+                            {
+                                "caption": "Key Bindings",
+                                "command": "edit_settings",
+                                "args": {
+                                    "base_file": "${packages}/Markdown2Dir/Default (Windows).sublime-keymap",
+                                    "user_file": "${packages}/User/Default (Windows).sublime-keymap"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]

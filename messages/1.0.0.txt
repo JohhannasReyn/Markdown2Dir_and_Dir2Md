@@ -1,0 +1,27 @@
+Markdown2Dir 1.0.0
+------------------
+
+This is a plugin for Sublime Text that enhances productivity when working with Markdown files by enabling seamless extraction and reinsertion of code blocks between a Markdown document and its parent directory.
+
+Features:
+1. Directory to Markdown: Extracts code blocks from a Markdown file and saves them as separate files in the same directory as the Markdown file. The file naming follows customizable conventions.
+2. Markdown to Directory: Inserts updated code blocks from files in the same directory back into the corresponding Markdown document, maintaining the original structure.
+
+Customization:
+- Configurable naming conventions for code block files.
+- Rules for ignoring specific blocks or handling conflicts with existing files.
+- Injection of updated content or archiving of original files.
+
+Use Cases:
+- Simplify workflows when dealing with Markdown files containing code snippets.
+- Keep your Markdown and related code files in sync effortlessly.
+
+This is my third plugin for Sublime Text. My first two plugins, Lensort (for line sorting by length) and DuplExpellio (for handling redundant entries), focused on improving text management and editing aesthetics. In contrast, this plugin is aimed at Markdown enthusiasts seeking a more practical utility.
+
+Installation:
+You can install Markdown2Dir via Sublime Text's command palette:
+- `Package Control: Install Package` -> Search for `Markdown2Dir`.
+
+Plugin Home:
+Find the latest updates and contribute to the plugin at:  
+[https://github.com/JohhannasReyn/Markdown2Dir](https://github.com/JohhannasReyn/Markdown2Dir)

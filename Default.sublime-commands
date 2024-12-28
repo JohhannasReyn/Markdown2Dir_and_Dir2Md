@@ -1,0 +1,10 @@
+[
+    {
+        "caption": "Dir2Markdown: Build Markdown From Directory",
+        "command": "dir2_markdown"
+    },
+    {
+        "caption": "Markdown2Dir: Build Directory From Markdown",
+        "command": "markdown2_dir"
+    }
+]
