@@ -1,3 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Sublime Text specific (excluding settings since they're needed)
+*.sublime-workspace
+*.sublime-project
+*.cache
+
+# Test directories and files
 .example/
-.tmap/
-*.sublime-package
+output_*/
+test_*/
+*.test
+*.tmp
+
+# Operating System
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and Editor folders
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Logs
+*.log
