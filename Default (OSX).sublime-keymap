@@ -1,10 +1,11 @@
 [
     // To use the suggested Key Bindings for Markdown2Dir...
-    // ...just remove the '//' from the beginning of lines with '{' and '}' and everything in between.
+    // ...just change the '/*' to '//*' at the beginning of line 8, and that's it.
     // "Markdown2Dir" will either attempt to generate files corresponding to the code fences from the
     // focused file using the rules defined in this package's settings, or will generate the code
     // fences in the currently focused markdown file from each of the files inside the same parent
     // directory as the currently focus markdown file.
+    /*
     {
        "keys": ["command+alt+m"],
        "command": "dir2_markdown",
@@ -12,7 +13,7 @@
             { "key": "selector", "operator": "equal", "operand": "text.plain" },
             { "key": "selector", "operator": "equal", "operand": "text.markdown" },
             { "key": "setting.is_widget", "operator": "equal", "operand": false },
-            { "key": "file_name", "operator": "regex_match", "operand": ".*\\.(md|markdown|mdown|mkd|mkdn|txt)$", "match_all": true }
+            { "key": "file_name", "operator": "regex_match", "operand": ".*.(md|markdown|mdown|mkd|mkdn|txt)$", "match_all": true }
         ]
     },
     {
@@ -22,7 +23,8 @@
             { "key": "selector", "operator": "equal", "operand": "text.plain" },
             { "key": "selector", "operator": "equal", "operand": "text.markdown" },
             { "key": "setting.is_widget", "operator": "equal", "operand": false },
-            { "key": "file_name", "operator": "regex_match", "operand": ".*\\.(md|markdown|mdown|mkd|mkdn|txt)$", "match_all": true }
+            { "key": "file_name", "operator": "regex_match", "operand": ".*.(md|markdown|mdown|mkd|mkdn|txt)$", "match_all": true }
         ]
     }
+    //*/
 ]

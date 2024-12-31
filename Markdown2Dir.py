@@ -5,10 +5,23 @@ import errno
 PRINT_DEBUG = True  # Global debug flag
 DEBUG_COUNT = 0
 def debug_print(*args, **kwargs):
+    """Print debug messages with line numbers, handling multiline strings."""
     global DEBUG_COUNT
-    if PRINT_DEBUG:
-        DEBUG_COUNT += 1
-        print(str(DEBUG_COUNT)+"\t| ", *args, **kwargs)
+    if not PRINT_DEBUG:
+        return
+    # Convert all arguments to strings and join them
+    message = " ".join(str(arg) for arg in args)
+    # If the message contains newlines, split and process each line
+    if "\n" in message:
+        lines = message.split("\n")
+        # Process each line individually, preserving any kwargs
+        for line in lines:
+            if line.strip():  # Only process non-empty lines
+                debug_print(line, **kwargs)
+        return
+    # Process single line
+    DEBUG_COUNT += 1
+    print("{}\t| {}".format(str(DEBUG_COUNT), message), **kwargs)
 
 # Try to import Sublime Text modules
 SUBLIME_AVAILABLE = False
@@ -62,11 +75,13 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         debug_print("Loading config...")
         default_config = {
             'file_naming_convention': 'on_fence',
-            'blocks_ignored': ['ext_bash', 'ext_lua', 'lessthan_3', 'nameless'],
+            'blocks_ignored': ['lessthan_3', 'nameless', 'readme', 'properties', 'without_ext'],
             'attempt_injection': True,
-            'handle_file_conflicts': 'prepend_and_comment'
+            'handle_file_conflicts': 'prepend_and_comment',
+            'extensions_2_include': [],
+            'extensions_2_ignore': []
         }
-
+    
         if SUBLIME_AVAILABLE:
             try:
                 debug_print("Attempting to load Sublime settings")
@@ -79,7 +94,9 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                         'file_naming_convention': file_naming,
                         'blocks_ignored': settings.get('blocks_ignored', default_config['blocks_ignored']),
                         'attempt_injection': settings.get('attempt_injection', default_config['attempt_injection']),
-                        'handle_file_conflicts': settings.get('handle_file_conflicts', default_config['handle_file_conflicts'])
+                        'handle_file_conflicts': settings.get('handle_file_conflicts', default_config['handle_file_conflicts']),
+                        'extensions_2_include': settings.get('extensions_2_include', default_config['extensions_2_include']),
+                        'extensions_2_ignore': settings.get('extensions_2_ignore', default_config['extensions_2_ignore'])
                     }
             except Exception as e:
                 debug_print("Error loading settings: {}".format(str(e)))
@@ -98,18 +115,40 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         return file_name and file_name.lower().endswith((".md", ".markdown", ".mdown", ".mkd", ".mkdn", ".txt"))
 
     def should_ignore_block(self, lang, code, filename, config):
+        """Determine if a code block should be ignored based on configuration settings."""
         blocks_ignored = config.get('blocks_ignored', [])
+        
+        # Check if block is nameless
         if 'nameless' in blocks_ignored and not filename:
+            debug_print("Ignoring nameless block")
             return True
+            
+        # Check minimum line count
         if 'lessthan_3' in blocks_ignored:
             if len(code.strip().splitlines()) < 3:
+                debug_print("Ignoring block with less than 3 lines")
                 return True
-        if filename:
-            ext = os.path.splitext(filename)[1][1:]
-            if 'ext_{}'.format(ext) in blocks_ignored:
-                return True
-        if not code.strip():
+                
+        # Check for readme or properties content
+        if 'readme' in blocks_ignored and any(x in code.lower() for x in ['readme', 'README']):
+            debug_print("Ignoring readme block")
             return True
+            
+        if 'properties' in blocks_ignored and any(x in code.lower() for x in ['properties', 'PROPERTIES']):
+            debug_print("Ignoring properties block")
+            return True
+            
+        # Check if file has extension
+        if 'without_ext' in blocks_ignored and filename:
+            if not os.path.splitext(filename)[1]:
+                debug_print("Ignoring file without extension")
+                return True
+                
+        # Check if code is empty
+        if not code.strip():
+            debug_print("Ignoring empty block")
+            return True
+            
         return False
 
     def get_filename_from_block(self, lang_or_filename, code, preceding_line, config):
@@ -229,35 +268,261 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                     backup_path = "{}_{}{}".format(base,counter,ext)
                 os.rename(output_path, backup_path)
 
-        return output_path
-
+        return output_path    
+    
+    
+    def find_code_injection_point(self, file_content, code_block, ext):
+        """Find injection points in existing file based on code block content."""
+        debug_print("Analyzing for code injection points")
+        
+        file_lines = file_content.split('\n')
+        code_lines = code_block.strip().split('\n')
+        
+        if not code_lines:
+            return None, None
+            
+        first_line = code_lines[0].strip()
+        last_line = code_lines[-1].strip()
+        
+        # Handle Python files differently
+        if ext == 'py':
+            return self._find_python_injection_points(file_lines, code_lines)
+        
+        # For other languages, try brace matching
+        start_idx = None
+        for i, line in enumerate(file_lines):
+            if line.strip() == first_line:
+                start_idx = i
+                break
+                
+        if start_idx is None:
+            return None, None
+            
+        # If last line matches exactly and isn't just a closing brace
+        if last_line != '}':
+            for i in range(start_idx + 1, len(file_lines)):
+                if file_lines[i].strip() == last_line:
+                    return start_idx, i
+                
+        # If last line is '}' or no exact match was found, try brace counting
+            brace_count = 0
+            for line in code_lines[1:]:  # Start after first line
+                brace_count += line.count('{')
+                brace_count -= line.count('}')
+                
+            # Now count braces in file until we match
+            current_count = 0
+            for i in range(start_idx + 1, len(file_lines)):
+                current_count += file_lines[i].count('{')
+                current_count -= file_lines[i].count('}')
+                if current_count == brace_count:
+                    return start_idx, i
+                    
+        return None, None
+    
+    def _find_python_injection_points(self, file_lines, code_lines):
+        """Find injection points specifically for Python files."""
+        debug_print("Finding Python-specific injection points")
+        
+        def get_definition_name(line):
+            """Extract function or class name from definition line."""
+            line = line.strip()
+            if line.startswith('def ') or line.startswith('class '):
+                parts = line.split()
+                if len(parts) >= 2:
+                    return parts[1].split('(')[0]
+            return None
+            
+        # Get the name of the function/class being defined in code block
+        code_def_name = None
+        for line in code_lines:
+            name = get_definition_name(line)
+            if name:
+                code_def_name = name
+                break
+                
+        if not code_def_name:
+            return None, None
+            
+        # Find matching definition in file
+        start_idx = None
+        end_idx = None
+        current_indent = None
+        
+        for i, line in enumerate(file_lines):
+            name = get_definition_name(line)
+            if name == code_def_name:
+                start_idx = i
+                current_indent = len(line) - len(line.lstrip())
+                continue
+                
+            if start_idx is not None:
+                # Check if we've returned to the same or lower indentation level
+                if line.strip() and len(line) - len(line.lstrip()) <= current_indent:
+                    end_idx = i - 1
+                    break
+                    
+        if start_idx is not None and end_idx is None:
+            end_idx = len(file_lines) - 1
+            
+        return start_idx, end_idx
+    
+    
+    def should_process_extension(self, filename, config):
+        """Check if file extension should be processed based on configuration."""
+        if not filename:
+            return False
+        ext = os.path.splitext(filename)[1][1:].lower()
+        include_list = config.get('extensions_2_include', [])
+        ignore_list = config.get('extensions_2_ignore', [])
+        # If include list is specified, only process those extensions
+        if include_list:
+            return ext in include_list
+        # Otherwise, process everything except ignored extensions
+        return ext not in ignore_list
+    
+    
+    def inject_code_block(self, file_path, code_block, config):
+        """Inject code block into existing file with appropriate commenting."""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                existing_content = f.read()
+                
+            ext = os.path.splitext(file_path)[1][1:]
+            start_comment, end_comment = self.get_comment_syntax(file_path)
+            
+            start_idx, end_idx = self.find_code_injection_point(existing_content, code_block, ext)
+            
+            if start_idx is not None and end_idx is not None:
+                lines = existing_content.split('\n')
+                
+                # Comment out the existing section
+                commented_lines = []
+                for line in lines[start_idx:end_idx + 1]:
+                    if line.strip():
+                        if end_comment:
+                            commented_lines.append("{} {} {}".format(start_comment,line,end_comment))
+                        else:
+                            commented_lines.append("{} {}".format(start_comment,line))
+                    else:
+                        commented_lines.append(line)
+                        
+                # Reconstruct the file content
+                new_content = (
+                    '\n'.join(lines[:start_idx]) + '\n' +
+                    code_block + '\n' +
+                    '\n'.join(commented_lines) + '\n' +
+                    '\n'.join(lines[end_idx + 1:])
+                )
+                
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                    
+                return True
+                
+            return False
+            
+        except Exception as e:
+            debug_print("Error during code injection: {}".format(str(e)))
+            return False
+    
     def extract_code_blocks(self, content, output_dir, config):
+        """Extract code blocks with updated extension handling."""
         debug_print("Extracting code blocks to: {}".format(output_dir))
         code_block_pattern = r'```([^\n]*)\n([\s\S]*?)```'
         lines = content.split("\n")
         matches = list(re.finditer(code_block_pattern, content))
         debug_print("Found {} code blocks".format(len(matches)))
-
+    
         for match in matches:
             lang_or_filename = match.group(1)
             code = match.group(2)
             debug_print("Processing block with lang/filename: {}".format(lang_or_filename))
+            
             start_pos = match.start()
             preceding_line = lines[content[:start_pos].count("\n") - 1] if start_pos > 0 else None
             filename = self.get_filename_from_block(lang_or_filename, code, preceding_line, config)
             debug_print("Resolved filename: {}".format(filename))
-
-            if filename and not self.should_ignore_block(lang_or_filename, code, filename, config):
+    
+            if filename:
+                # Check if we should process this extension
+                if not self.should_process_extension(filename, config):
+                    debug_print("Skipping {} based on extension settings".format(filename))
+                    continue
+                    
+                # Check other ignore conditions
+                if self.should_ignore_block(lang_or_filename, code, filename, config):
+                    debug_print("Skipping {} based on block ignore settings".format(filename))
+                    continue
+    
                 try:
                     output_path = self.resolve_output_path(output_dir, filename, config)
                     debug_print("Writing to: {}".format(output_path))
+                    
                     if output_path and self.ensure_directory_exists(output_path):
-                        with open(output_path, "w", encoding='utf-8') as file:
-                            file.write(code.strip())
-                        debug_print("Extracted: {}".format(output_path))
+                        if os.path.exists(output_path) and config.get('attempt_injection', False):
+                            if self.inject_code_block(output_path, code.strip(), config):
+                                debug_print("Successfully injected code into {}".format(output_path))
+                                continue
+                                
+                        # Handle according to conflict settings if injection failed or wasn't attempted
+                        if os.path.exists(output_path):
+                            self.handle_file_conflict(output_path, code.strip(), config)
+                        else:
+                            with open(output_path, "w", encoding='utf-8') as file:
+                                file.write(code.strip())
+                            debug_print("Extracted: {}".format(output_path))
+                            
                 except Exception as e:
-                    debug_print("Error processing {}: {}".format(filename,str(e)))
-                    sublime.error_message("Error processing {}: {}".format(filename,str(e)))
+                    debug_print("Error processing {}: {}".format(filename, str(e)))
+                    sublime.error_message("Error processing {}: {}".format(filename, str(e)))
+
+ 
+    def handle_file_conflict(self, file_path, code, config):
+        """Handle file conflicts based on configuration."""
+        conflict_handling = config.get('handle_file_conflicts', 'prepend_and_comment')
+        
+        if conflict_handling == 'prepend_and_comment':
+            start_comment, end_comment = self.get_comment_syntax(file_path)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                existing_content = f.read()
+                
+            commented_content = []
+            for line in existing_content.split('\n'):
+                if line.strip():
+                    if end_comment:
+                        commented_content.append("{} {} {}".format(start_comment, line, end_comment))
+                    else:
+                        commented_content.append("{} {}".format(start_comment, line))
+                else:
+                    commented_content.append(line)
+                    
+            new_content = code + '\n\n' + '\n'.join(commented_content)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+                
+        elif conflict_handling == 'append_n_to_filename':
+            base, ext = os.path.splitext(file_path)
+            counter = 1
+            while os.path.exists("{}_{}.{}".format(base, counter, ext)):
+                counter += 1
+            with open("{}_{}.{}".format(base, counter, ext), 'w', encoding='utf-8') as f:
+                f.write(code)
+                
+        elif conflict_handling == 'move_to_backup_dir':
+            backup_dir = os.path.join(os.path.dirname(file_path), 'backup')
+            os.makedirs(backup_dir, exist_ok=True)
+            backup_path = os.path.join(backup_dir, os.path.basename(file_path))
+            if os.path.exists(backup_path):
+                base, ext = os.path.splitext(backup_path)
+                counter = 1
+                while os.path.exists("{}_{}.{}".format(base, counter, ext)):
+                    counter += 1
+                backup_path = "{}_{}.{}".format(base, counter, ext)
+            os.rename(file_path, backup_path)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(code)
+
 
     def insert_code_blocks(self, content, directory, config):
         if not content or not directory:

@@ -4,33 +4,44 @@
     // with the formatting, start by generating a markdown file from an existing directory. This
     // ensures you can replicate the format when building a directory from markdown.
 
-    // NOTE: The markdown file must be saved in the same directory as the project files to be 
-    // generated or read. If building markdown from existing files, save an empty markdown file 
-    // (e.g., <your_project_name>.md) in the target directory. Open the .md file in Sublime Text 
+    // NOTE: The markdown file must be saved in the same directory as the project files to be
+    // generated or read. If building markdown from existing files, save an empty markdown file
+    // (e.g., <your_project_name>.md) in the target directory. Open the .md file in Sublime Text
     // and select:
     // - "Build Directory 2 Markdown" (to generate markdown from files)
     // - "Build Markdown 2 Directory" (to generate files from markdown)
 
-    "file_naming_convention": "on_fence", // Options are: "on_fence", "before_fence", "after_fence" 
+    "file_naming_convention": "on_fence", // Options are: "on_fence", "before_fence", "after_fence"
     // Examples:
     // path_and_filename/before_fence.cpp   // node: the line contains only the path and filename
     // ```path_and_filename/on_fence.cpp    // note: line begins with the the code fence
     // // path_and_filename/after_fence.cpp // note: is first line after fence and is commented
 
-    "blocks_ignored": ["ext_bash", "ext_lua", "lessthan_3", "nameless"], // Configure as needed:
-    // - "ext_<ext>" - Ignores blocks with the specified extension (e.g., "ext_bash").
+    "blocks_ignored": ["readme", "properties", "lessthan_3", "nameless", "without_ext"], // Configure
+    // as needed: - "readme" - Ignores blocks that contain the phrase "readme" or "README".
+    // - "properties" - Ignores blocks that contain the phrase "properties" or "PROPERTIES"
     // - "lessthan_<N>" - Ignores code blocks smaller than N lines (default: 3).
-    //      Note: Setting this to 0 has the same effect as removing it.
-    // Additional options:
-    // - "nameless" - Ignores unnamed code blocks.
-    // - "none" - Includes all blocks regardless of other settings.
-    //      Note: Nameless files are named <N>.<ext>, where N is the first non-conflicting integer
-    //      found, and <ext> is derived from the code fence or defaults to '.o'.
+    //      Note: If set to 0 (equivalant to removing it), size becomes arbitrary.
+    // - "nameless" - Ignores code blocks that are unnamed.
+    // - "none" - Includes ALL blocks regardless of other settings.
+    //      Note: Nameless files will be named <N>.<ext>, where N is the first non-conflicting integer
+    //      found, and <ext> is derived from the code fence or defaults to '.txt'.
     // - "conflicts" - Ignores files that already exist.
-    // - "new" - Ignores code blocks without corresponding existing files.
+    // - "new" - Ignores code blocks or files that do not have corresponding files or code blocks.
 
+    "extensions_2_include": [], // Configure as needed: add any extension that is to be included in
+    // the generated markdown file, or built from the markdown file. Any value entered here will leave
+    // "extensions_2_ignore" ignored. Note: values are entered without the '.', e.g: ["txt","cpp","h"]
+
+    "extensions_2_ignore": [], // Configure as needed: add any extension that is to be excluded from
+    // the generated markdown file, or filetype not to build from the markdown file. Note: This option
+    // is not used if an entry is specified in "extensions_2_include", or if the option "none" is used
+    // in "blocks_ignored". Additionally: values are entered without the '.', e.g: ["txt","cpp","h"]
+
+    // ** EXPERIMENTAL ** Use with little faith, double and triple check output.
+    // * Note * No code is actually deleted, only commented out, as a fail safe.
     "attempt_injection": true, // Ignored if "blocks_ignored" includes "conflicts". Options:
-    // - true: Conflicts are treated as injectable. The plugin searches for matching start and 
+    // - true: Conflicts are treated as injectable. The plugin searches for matching start and
     //      end lines of code in the existing file to determine where to insert/replace the block.
     //      Replaced code is commented out, not removed, with the new block prepended.
     // - false: Conflicts are handled according to "handle_file_conflicts".
