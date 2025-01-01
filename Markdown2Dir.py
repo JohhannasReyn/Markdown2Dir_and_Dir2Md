@@ -2,7 +2,7 @@ import os
 import re
 import errno
 
-PRINT_DEBUG = False  # Global debug flag
+PRINT_DEBUG = True  # Global debug flag
 DEBUG_COUNT = 0
 def debug_print(*args, **kwargs):
     """Print debug messages with line numbers, handling multiline strings."""
@@ -81,7 +81,7 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             'extensions_2_include': [],
             'extensions_2_ignore': []
         }
-    
+
         if SUBLIME_AVAILABLE:
             try:
                 debug_print("Attempting to load Sublime settings")
@@ -117,38 +117,38 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
     def should_ignore_block(self, lang, code, filename, config):
         """Determine if a code block should be ignored based on configuration settings."""
         blocks_ignored = config.get('blocks_ignored', [])
-        
+
         # Check if block is nameless
         if 'nameless' in blocks_ignored and not filename:
             debug_print("Ignoring nameless block")
             return True
-            
+
         # Check minimum line count
         if 'lessthan_3' in blocks_ignored:
             if len(code.strip().splitlines()) < 3:
                 debug_print("Ignoring block with less than 3 lines")
                 return True
-                
+
         # Check for readme or properties content
         if 'readme' in blocks_ignored and any(x in code.lower() for x in ['readme', 'README']):
             debug_print("Ignoring readme block")
             return True
-            
+
         if 'properties' in blocks_ignored and any(x in code.lower() for x in ['properties', 'PROPERTIES']):
             debug_print("Ignoring properties block")
             return True
-            
+
         # Check if file has extension
         if 'without_ext' in blocks_ignored and filename:
             if not os.path.splitext(filename)[1]:
                 debug_print("Ignoring file without extension")
                 return True
-                
+
         # Check if code is empty
         if not code.strip():
             debug_print("Ignoring empty block")
             return True
-            
+
         return False
 
     def get_filename_from_block(self, lang_or_filename, code, preceding_line, config):
@@ -268,48 +268,48 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                     backup_path = "{}_{}{}".format(base,counter,ext)
                 os.rename(output_path, backup_path)
 
-        return output_path    
-    
-    
+        return output_path
+
+
     def find_code_injection_point(self, file_content, code_block, ext):
         """Find injection points in existing file based on code block content."""
         debug_print("Analyzing for code injection points")
-        
+
         file_lines = file_content.split('\n')
         code_lines = code_block.strip().split('\n')
-        
+
         if not code_lines:
             return None, None
-            
+
         first_line = code_lines[0].strip()
         last_line = code_lines[-1].strip()
-        
+
         # Handle Python files differently
         if ext == 'py':
             return self._find_python_injection_points(file_lines, code_lines)
-        
+
         # For other languages, try brace matching
         start_idx = None
         for i, line in enumerate(file_lines):
             if line.strip() == first_line:
                 start_idx = i
                 break
-                
+
         if start_idx is None:
             return None, None
-            
+
         # If last line matches exactly and isn't just a closing brace
         if last_line != '}':
             for i in range(start_idx + 1, len(file_lines)):
                 if file_lines[i].strip() == last_line:
                     return start_idx, i
-                
+
         # If last line is '}' or no exact match was found, try brace counting
             brace_count = 0
             for line in code_lines[1:]:  # Start after first line
                 brace_count += line.count('{')
                 brace_count -= line.count('}')
-                
+
             # Now count braces in file until we match
             current_count = 0
             for i in range(start_idx + 1, len(file_lines)):
@@ -317,13 +317,13 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                 current_count -= file_lines[i].count('}')
                 if current_count == brace_count:
                     return start_idx, i
-                    
+
         return None, None
-    
+
     def _find_python_injection_points(self, file_lines, code_lines):
         """Find injection points specifically for Python files."""
         debug_print("Finding Python-specific injection points")
-        
+
         def get_definition_name(line):
             """Extract function or class name from definition line."""
             line = line.strip()
@@ -332,7 +332,7 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                 if len(parts) >= 2:
                     return parts[1].split('(')[0]
             return None
-            
+
         # Get the name of the function/class being defined in code block
         code_def_name = None
         for line in code_lines:
@@ -340,34 +340,34 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             if name:
                 code_def_name = name
                 break
-                
+
         if not code_def_name:
             return None, None
-            
+
         # Find matching definition in file
         start_idx = None
         end_idx = None
         current_indent = None
-        
+
         for i, line in enumerate(file_lines):
             name = get_definition_name(line)
             if name == code_def_name:
                 start_idx = i
                 current_indent = len(line) - len(line.lstrip())
                 continue
-                
+
             if start_idx is not None:
                 # Check if we've returned to the same or lower indentation level
                 if line.strip() and len(line) - len(line.lstrip()) <= current_indent:
                     end_idx = i - 1
                     break
-                    
+
         if start_idx is not None and end_idx is None:
             end_idx = len(file_lines) - 1
-            
+
         return start_idx, end_idx
-    
-    
+
+
     def should_process_extension(self, filename, config):
         """Check if file extension should be processed based on configuration."""
         if not filename:
@@ -380,22 +380,22 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             return ext in include_list
         # Otherwise, process everything except ignored extensions
         return ext not in ignore_list
-    
-    
+
+
     def inject_code_block(self, file_path, code_block, config):
         """Inject code block into existing file with appropriate commenting."""
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 existing_content = f.read()
-                
+
             ext = os.path.splitext(file_path)[1][1:]
             start_comment, end_comment = self.get_comment_syntax(file_path)
-            
+
             start_idx, end_idx = self.find_code_injection_point(existing_content, code_block, ext)
-            
+
             if start_idx is not None and end_idx is not None:
                 lines = existing_content.split('\n')
-                
+
                 # Comment out the existing section
                 commented_lines = []
                 for line in lines[start_idx:end_idx + 1]:
@@ -406,7 +406,7 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                             commented_lines.append("{} {}".format(start_comment,line))
                     else:
                         commented_lines.append(line)
-                        
+
                 # Reconstruct the file content
                 new_content = (
                     '\n'.join(lines[:start_idx]) + '\n' +
@@ -414,18 +414,18 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                     '\n'.join(commented_lines) + '\n' +
                     '\n'.join(lines[end_idx + 1:])
                 )
-                
+
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(new_content)
-                    
+
                 return True
-                
+
             return False
-            
+
         except Exception as e:
             debug_print("Error during code injection: {}".format(str(e)))
             return False
-    
+
     def extract_code_blocks(self, content, output_dir, config):
         """Extract code blocks with updated extension handling."""
         debug_print("Extracting code blocks to: {}".format(output_dir))
@@ -433,38 +433,38 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         lines = content.split("\n")
         matches = list(re.finditer(code_block_pattern, content))
         debug_print("Found {} code blocks".format(len(matches)))
-    
+
         for match in matches:
             lang_or_filename = match.group(1)
             code = match.group(2)
             debug_print("Processing block with lang/filename: {}".format(lang_or_filename))
-            
+
             start_pos = match.start()
             preceding_line = lines[content[:start_pos].count("\n") - 1] if start_pos > 0 else None
             filename = self.get_filename_from_block(lang_or_filename, code, preceding_line, config)
             debug_print("Resolved filename: {}".format(filename))
-    
+
             if filename:
                 # Check if we should process this extension
                 if not self.should_process_extension(filename, config):
                     debug_print("Skipping {} based on extension settings".format(filename))
                     continue
-                    
+
                 # Check other ignore conditions
                 if self.should_ignore_block(lang_or_filename, code, filename, config):
                     debug_print("Skipping {} based on block ignore settings".format(filename))
                     continue
-    
+
                 try:
                     output_path = self.resolve_output_path(output_dir, filename, config)
                     debug_print("Writing to: {}".format(output_path))
-                    
+
                     if output_path and self.ensure_directory_exists(output_path):
                         if os.path.exists(output_path) and config.get('attempt_injection', False):
                             if self.inject_code_block(output_path, code.strip(), config):
                                 debug_print("Successfully injected code into {}".format(output_path))
                                 continue
-                                
+
                         # Handle according to conflict settings if injection failed or wasn't attempted
                         if os.path.exists(output_path):
                             self.handle_file_conflict(output_path, code.strip(), config)
@@ -472,21 +472,21 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                             with open(output_path, "w", encoding='utf-8') as file:
                                 file.write(code.strip())
                             debug_print("Extracted: {}".format(output_path))
-                            
+
                 except Exception as e:
                     debug_print("Error processing {}: {}".format(filename, str(e)))
                     sublime.error_message("Error processing {}: {}".format(filename, str(e)))
 
- 
+
     def handle_file_conflict(self, file_path, code, config):
         """Handle file conflicts based on configuration."""
         conflict_handling = config.get('handle_file_conflicts', 'prepend_and_comment')
-        
+
         if conflict_handling == 'prepend_and_comment':
             start_comment, end_comment = self.get_comment_syntax(file_path)
             with open(file_path, 'r', encoding='utf-8') as f:
                 existing_content = f.read()
-                
+
             commented_content = []
             for line in existing_content.split('\n'):
                 if line.strip():
@@ -496,11 +496,11 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                         commented_content.append("{} {}".format(start_comment, line))
                 else:
                     commented_content.append(line)
-                    
+
             new_content = code + '\n\n' + '\n'.join(commented_content)
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(new_content)
-                
+
         elif conflict_handling == 'append_n_to_filename':
             base, ext = os.path.splitext(file_path)
             counter = 1
@@ -508,7 +508,7 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                 counter += 1
             with open("{}_{}.{}".format(base, counter, ext), 'w', encoding='utf-8') as f:
                 f.write(code)
-                
+
         elif conflict_handling == 'move_to_backup_dir':
             backup_dir = os.path.join(os.path.dirname(file_path), 'backup')
             os.makedirs(backup_dir, exist_ok=True)
@@ -576,7 +576,7 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         except Exception as e:
             debug_print("Error writing to markdown file: {}".format(str(e)))
             sublime.error_message("Error writing to markdown file: {}".format(str(e)))
-            
+
     def get_files_recursive(self, directory):
         """Gets all files in directory and subdirectories."""
         debug_print("Scanning directory: {}".format(directory))
@@ -690,11 +690,108 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
         }
         return ext_to_lang.get(ext, ext)
 
+    def generate_directory_tree(self, base_dir):
+        """Generate a visual directory tree structure using os.walk()."""
+        debug_print("Generating directory tree for: {}".format(base_dir))
+
+        def should_exclude(name):
+            """Check if a file or directory should be excluded from the tree."""
+            # Add any folders or files you want to exclude
+            excludes = ['.git', '__pycache__', '.DS_Store', '.pio']
+            return name in excludes or name.startswith('.git')
+
+        def add_files_to_tree(tree_dict, path_parts, is_file):
+            """Recursively build tree dictionary."""
+            if not path_parts:
+                return
+
+            current = path_parts[0]
+            remaining = path_parts[1:]
+
+            if current not in tree_dict:
+                tree_dict[current] = {"files": [], "dirs": {}}
+
+            if is_file and not remaining:
+                tree_dict[current]["files"].append(current)
+            elif not is_file and not remaining:
+                pass  # Directory already created
+            else:
+                add_files_to_tree(tree_dict[current]["dirs"], remaining, is_file)
+
+        def format_tree(tree_dict, prefix="", is_last=True, is_root=False):
+            """Convert tree dictionary to formatted string."""
+            lines = []
+
+            if is_root:
+                lines.append(os.path.basename(base_dir))
+
+            # Sort files and directories
+            items = []
+
+            # Add directories
+            for dirname in sorted(tree_dict["dirs"].keys()):
+                items.append((dirname, True))
+
+            # Add files
+            for filename in sorted(tree_dict["files"]):
+                items.append((filename, False))
+
+            # Process all items
+            for idx, (name, is_dir) in enumerate(items):
+                is_last_item = (idx == len(items) - 1)
+
+                if is_root:
+                    new_prefix = "|   " if not is_last_item else "    "
+                else:
+                    new_prefix = prefix + ("|   " if not is_last_item else "    ")
+
+                lines.append(prefix + "|__ " + name)
+
+                if is_dir:
+                    lines.extend(format_tree(
+                        tree_dict["dirs"][name],
+                        new_prefix,
+                        is_last_item
+                    ))
+
+            return lines
+
+        try:
+            # Build tree structure
+            tree = {"files": [], "dirs": {}}
+
+            for root, dirs, files in os.walk(base_dir):
+                # Remove excluded directories
+                dirs[:] = [d for d in dirs if not should_exclude(d)]
+
+                # Calculate relative path
+                rel_path = os.path.relpath(root, base_dir)
+                if rel_path != ".":
+                    path_parts = rel_path.split(os.sep)
+                    add_files_to_tree(tree["dirs"], path_parts, False)
+
+                # Add files
+                for file in sorted(files):
+                    if rel_path == ".":
+                        add_files_to_tree(tree, [file], True)
+                    else:
+                        path_parts = rel_path.split(os.sep) + [file]
+                        add_files_to_tree(tree["dirs"], path_parts, True)
+
+            # Format tree
+            tree_lines = format_tree(tree, is_root=True)
+            return "\n".join(tree_lines)
+
+        except Exception as e:
+            debug_print("Error generating directory tree: {}".format(str(e)))
+            return "Error generating directory tree"
+
+
     def format_markdown_block(self, file_path, content, config):
         """Format a single file as a markdown code block."""
         naming_convention = config.get("file_naming_convention", "on_fence")
         lines = []
-        
+
         if naming_convention == "before_fence":
             lines.append(file_path)
             lines.append("```{}".format(self.get_file_language(file_path)))
@@ -703,7 +800,7 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
             lines.append("// {}".format(file_path))
         else:  # on_fence or following_first_code_fence
             lines.append("```{}".format(file_path))
-            
+
         lines.append(content.strip())
         lines.append("```\n")
         return "\n".join(lines)
@@ -712,12 +809,12 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
         """Run the command in either Sublime Text or standalone mode."""
         debug_print("Starting Dir2Markdown command")
         config = self.load_config()
-        
+
         # Determine base directory and output file
         script_dir = os.path.dirname(os.path.abspath(__file__))
         base_dir = os.path.join(script_dir, ".example")
         output_file = os.path.join(base_dir, "generated_example.md")
-        
+
         if SUBLIME_AVAILABLE and self.view and self.view.file_name():
             base_dir = os.path.dirname(self.view.file_name())
             output_file = self.view.file_name()
@@ -729,6 +826,17 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
         debug_print("Output file: {}".format(output_file))
 
         try:
+            # Generate directory tree first
+            directory_tree = self.generate_directory_tree(base_dir)
+
+            # Start content with directory tree
+            content = [
+                "# Directory Structure\n",
+                "```",
+                directory_tree,
+                "```\n",
+                "# File Contents\n"
+            ]
             # Skip test output directories and focus on original files
             all_files = []
             for root, _, files in os.walk(base_dir):
@@ -739,18 +847,20 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
                         continue
                     full_path = os.path.join(root, filename)
                     rel_path = os.path.relpath(full_path, base_dir)
-                    all_files.append(rel_path)
-                    debug_print("Found file: {}".format(rel_path))
+                    # Check if the file extension should be processed based on config
+                    if self.should_process_extension(rel_path, config):
+                        all_files.append(rel_path)
+                        debug_print("Found file: {}".format(rel_path))
+                    else:
+                        debug_print("Skipping file due to extension settings: {}".format(rel_path))
 
             if not all_files:
-                msg = "No files found in directory"
+                msg = "No files found in directory matching extension criteria"
                 debug_print(msg)
                 if SUBLIME_AVAILABLE:
                     sublime.message_dialog(msg)
                 return
 
-            # Generate markdown content
-            content = ["# Directory Contents\n"]
             for file_path in sorted(all_files):
                 try:
                     full_path = os.path.join(base_dir, file_path)
