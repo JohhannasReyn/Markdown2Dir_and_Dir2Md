@@ -1,6 +1,6 @@
 [
     // To use the suggested Key Bindings for Markdown2Dir...
-    // ...just remove the '/*' that is before the '{' and the '*/' following the '}' to uncomment the code.
+    // ...just change the '/*' that is on line 8 to '//* to uncomment the code.
     // "Markdown2Dir" will either attempt to generate files corresponding to the code fences from the
     // focused file using the rules defined in this package's settings, or will generate the code
     // fences in the currently focused markdown file from each of the files inside the same parent
@@ -26,5 +26,5 @@
             { "key": "file_name", "operator": "regex_match", "operand": ".*\\.(md|markdown|mdown|mkd|mkdn|txt)$", "match_all": true }
         ]
     }
-    */
+    //*/
 ]

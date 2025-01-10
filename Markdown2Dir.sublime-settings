@@ -1,57 +1,101 @@
 {
-    // IMPORTANT: Set these values before starting your project. The markdown generation process
-    // follows the same rules as directory creation from a markdown file. To familiarize yourself
-    // with the formatting, start by generating a markdown file from an existing directory. This
-    // ensures you can replicate the format when building a directory from markdown.
+    // ===== General Guidelines =====
+    // IMPORTANT: Configure these settings before starting your project.
+    // The plugin generates markdown from directories and vice versa using the rules below.
+    // Save the markdown file in the same directory as the project files to be processed.
 
-    // NOTE: The markdown file must be saved in the same directory as the project files to be
-    // generated or read. If building markdown from existing files, save an empty markdown file
-    // (e.g., <your_project_name>.md) in the target directory. Open the .md file in Sublime Text
-    // and select:
-    // - "Build Directory 2 Markdown" (to generate markdown from files)
-    // - "Build Markdown 2 Directory" (to generate files from markdown)
+    // Commands:
+    // - "Build Directory 2 Markdown": Generate markdown from existing files.
+    // - "Build Markdown 2 Directory": Generate files from a markdown file.
 
-    "file_naming_convention": "on_fence", // Options are: "on_fence", "before_fence", "after_fence"
-    // Examples:
-    // path_and_filename/before_fence.cpp   // node: the line contains only the path and filename
-    // ```path_and_filename/on_fence.cpp    // note: line begins with the the code fence
-    // // path_and_filename/after_fence.cpp // note: is first line after fence and is commented
+    // ===== Settings =====
 
-    "blocks_ignored": ["readme", "properties", "lessthan_3", "nameless", "without_ext"], // Configure
-    // as needed: - "readme" - Ignores blocks that contain the phrase "readme" or "README".
-    // - "properties" - Ignores blocks that contain the phrase "properties" or "PROPERTIES"
-    // - "lessthan_<N>" - Ignores code blocks smaller than N lines (default: 3).
-    //      Note: If set to 0 (equivalant to removing it), size becomes arbitrary.
-    // - "nameless" - Ignores code blocks that are unnamed.
-    // - "none" - Includes ALL blocks regardless of other settings.
-    //      Note: Nameless files will be named <N>.<ext>, where N is the first non-conflicting integer
-    //      found, and <ext> is derived from the code fence or defaults to '.txt'.
-    // - "conflicts" - Ignores files that already exist.
-    // - "new" - Ignores code blocks or files that do not have corresponding files or code blocks.
+    "file_naming_convention": "on_fence",
+    // Options: "on_fence", "before_fence", "after_fence"
+    // Defines how filenames are represented in markdown:
+    // - "before_fence":
+    //       path/to/file.cpp
+    //       ```cpp
+    //       // Code content
+    //       ```
+    // - "on_fence":
+    //       ```path/to/file.cpp
+    //       // Code content
+    //       ```
+    // - "after_fence":
+    //       ```
+    //       // path/to/file.cpp
+    //       // Code content
+    //       ```
 
-    "extensions_2_include": [], // Configure as needed: add any extension that is to be included in
-    // the generated markdown file, or built from the markdown file. Any value entered here will leave
-    // "extensions_2_ignore" ignored. Note: values are entered without the '.', e.g: ["txt","cpp","h"]
+    "blocks_ignored": ["readme", "properties", "lessthan_3", "nameless", "without_ext"],
+    // Specifies which code blocks to ignore during processing:
+    // - "conflicts": Ignores blocks w/ existing files and files w/ matching blocks.
+    // - "non-conflicts": Ignores blocks w/o matching files and files w/o matching blocks.
+    // - "readme": Ignore blocks containing "readme" or "README".
+    // - "properties": Ignore blocks containing "properties" or "PROPERTIES".
+    // - "lessthan_<N>": Ignore blocks smaller than N lines (default: 3).
+    // - "nameless": Ignore blocks without filenames.
+    // - "without_ext": Ignore files without extensions.
+    // - "none": Include all blocks (overrides other settings).
+    //   Note: Nameless files will be named using the first available number and default extension.
 
-    "extensions_2_ignore": [], // Configure as needed: add any extension that is to be excluded from
-    // the generated markdown file, or filetype not to build from the markdown file. Note: This option
-    // is not used if an entry is specified in "extensions_2_include", or if the option "none" is used
-    // in "blocks_ignored". Additionally: values are entered without the '.', e.g: ["txt","cpp","h"]
+    "extensions_2_include": [],
+    // Specify file extensions to include (overrides "extensions_2_ignore").
+    // Example: ["cpp", "py", "txt"]
+    // Leave empty to include all extensions.
 
-    // ** EXPERIMENTAL ** Use with little faith, double and triple check output.
-    // * Note * No code is actually deleted, only commented out, as a fail safe.
-    "attempt_injection": true, // Ignored if "blocks_ignored" includes "conflicts". Options:
-    // - true: Conflicts are treated as injectable. The plugin searches for matching start and
-    //      end lines of code in the existing file to determine where to insert/replace the block.
-    //      Replaced code is commented out, not removed, with the new block prepended.
-    // - false: Conflicts are handled according to "handle_file_conflicts".
+    "extensions_2_ignore": [],
+    // Specify file extensions to exclude (ignored if "extensions_2_include" is set).
+    // Example: ["log", "tmp"]
+    // Leave empty to include all extensions.
 
-    "handle_file_conflicts": "prepend_and_comment" // Ignored if "blocks_ignored" includes
-    // "conflicts". Options:
-    // - "prepend_and_comment": Adds the code block to the start of the file and comments out the
-    //      existing content using '//', '#', or ';', depending on the file type.
-    // - "append_n_to_filename": Appends (n) to the filename for new files to avoid conflicts.
-    // - "append_oN_to_ext": Adds ".oN" to the file extension, where N is the next available number.
-    // - "move_to_backup_dir": Moves the conflicting file to a "backup" folder within the directory
-    //      and appends (N) to its filename if necessary.
+    "directories_2_include": [],
+    // List directories to include during processing (overrides "directories_2_ignore").
+    // Example: ["src", "include"]
+    // Leave empty to include all directories.
+
+    "directories_2_ignore": [],
+    // List directories to exclude during processing (used only if "directories_2_include" is empty).
+    // Example: ["build", "temp"]
+
+    "include_nested_directories": true,
+    // Options: true, false
+    // If true, nested directories under the specified parent are included or excluded based on rules.
+
+    "files_2_include": [],
+    // Specify exact filenames (case-sensitive) to include during processing.
+    // Example: ["main.cpp", "config.json"]
+    // Overrides all other file-related settings.
+
+    "files_2_ignore": [],
+    // Specify exact filenames (case-sensitive) to exclude during processing.
+    // Used only if "files_2_include" is empty.
+    // Example: ["debug.log", "README.md"]
+
+    "partial_names_2_include": [],
+    // Specify keywords to include files whose names contain these terms (case-insensitive).
+    // Example: ["config", "settings"]
+
+    "partial_names_2_ignore": [],
+    // Specify keywords to exclude files whose names contain these terms (case-insensitive).
+    // Example: ["debug", "temp"]
+
+    "attempt_injection": false,
+    // Options: true, false
+    // EXPERIMENTAL: Determines how to handle code blocks for existing files.
+    // - true: Injects new code blocks into existing files, commenting out replaced sections.
+    // - false: Handles conflicts using the "handle_file_conflicts" setting.
+
+    "handle_file_conflicts": "prepend_and_comment"
+    // Options: "prepend_and_comment", "append_n_to_filename", "append_oN_to_ext", "move_to_backup_dir"
+    // Specifies how to handle file conflicts during processing:
+    // - "prepend_and_comment": Adds new code at the start of the file and comments out existing content.
+    // - "append_n_to_filename": Appends a number (e.g., "file_1.cpp") to create a new file.
+    // - "append_oN_to_ext": Adds ".oN" to the extension (e.g., "file.o1.cpp").
+    // - "move_to_backup_dir": Moves conflicting files to a "backup" directory and renames if needed.
+
+    // ===== Notes =====
+    // Use experimental features like "attempt_injection" cautiously, as they may produce unexpected results.
+    // Always back up your data before processing.
 }

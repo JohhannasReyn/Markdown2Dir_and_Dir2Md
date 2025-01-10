@@ -22,9 +22,10 @@ Installation Options
 
 Usage Options
 -------------
+  - Adjust the plugin settings first! (Refer to the settings file, or doc, for details)
   - Open a Markdown file (.md, .markdown).
   - Via the Context Menu: Right-click on the document or selected text and select *Directory to Markdown* or *Markdown to Directory*.
-  - Via the Menu Bar: *Tools -> Markdown2Dir -> Directory to Markdown* or *Markdown to Directory*.
+  - Via the Menu Bar (if enabled): *Tools -> Build Directory from Markdown* or *Build Markdown from Directory*.
   - Via Key Bindings (if enabled): Use the defined key-mapping specified in the sublime-keymap file. Suggested mappings:
     - `Ctrl+Alt+M` for *Directory to Markdown*.
     - `Alt+Shift+M` for *Markdown to Directory*.

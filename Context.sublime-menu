@@ -4,7 +4,7 @@
  * that corresponds to the file that shares the same name in
  * the Sublime Text AppData folder.
  */
-/*
+//*
 [
     { "caption": "-" },
     {
@@ -25,4 +25,4 @@
     },
     { "caption": "-" }
 ]
-*/
+//*/
