@@ -1,15 +1,15 @@
 [
     {
-        "caption": "File",
-        "mnemonic": "F",
-        "id": "file",
+        "caption": "Tools",
+        "mnemonic": "T",
+        "id": "tools",
         "children": [
             {
-                "caption": "Build Directory From Markdown",
+                "caption": "Build Directory from Markdown",
                 "command": "markdown2_dir"
             },
             {
-                "caption": "Build Markdown From Directory",
+                "caption": "Build Markdown from Directory",
                 "command": "dir2_markdown"
             }
         ]
@@ -28,11 +28,17 @@
                         "caption": "Markdown2Dir",
                         "children": [
                             {
-                                "caption": "Settings",
-                                "command": "edit_settings",
+                                "caption": "Settings - Default",
+                                "command": "open_file",
                                 "args": {
-                                    "base_file": "${packages}/Markdown2Dir/Markdown2Dir.sublime-settings",
-                                    "user_file": "${packages}/User/Markdown2Dir.sublime-settings"
+                                    "file": "${packages}/Markdown2Dir/Markdown2Dir.sublime-settings"
+                                }
+                            },
+                            {
+                                "caption": "Settings - User",
+                                "command": "open_file",
+                                "args": {
+                                    "file": "${packages}/User/Markdown2Dir.sublime-settings"
                                 }
                             },
                             {
