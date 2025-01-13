@@ -2,34 +2,13 @@ import os
 import re
 import errno
 
-PRINT_DEBUG = True  # Global debug flag
 PROFILE_PLUGIN = False # If profiling plugin for performance elavuation.
 
 DEBUG_COUNT = 0
 
-
-def debug_print(*args, **kwargs):
-    """Print debug messages with line numbers, handling multiline strings."""
-    global DEBUG_COUNT
-    if not PRINT_DEBUG:
-        return
-    # Convert all arguments to strings and join them
-    message = " ".join(str(arg) for arg in args)
-    # If the message contains newlines, split and process each line
-    if "\n" in message:
-        lines = message.split("\n")
-        # Process each line individually, preserving any kwargs
-        for line in lines:
-            if line.strip():  # Only process non-empty lines
-                debug_print(line, **kwargs)
-        return
-    # Process single line
-    DEBUG_COUNT += 1
-    print("{}\t| {}".format(str(DEBUG_COUNT), message), **kwargs)
-
-
 # Try to import Sublime Text modules
 SUBLIME_AVAILABLE = False
+
 try:
     import sublime
     import sublime_plugin
@@ -52,6 +31,32 @@ except ImportError:
     sublime_plugin = type('MockSublimePlugin', (), {'TextCommand': MockTextCommand})
 
 
+def debug_print(*args, **kwargs):
+    """Print debug messages with line numbers, handling multiline strings."""
+    global DEBUG_COUNT
+    global SUBLIME_AVAILABLE
+    if SUBLIME_AVAILABLE and not sublime.load_settings("Markdown2Dir.sublime-settings").get("enable_debug_output", False):
+        return
+    # Convert all arguments to strings and join them
+    message = " ".join(str(arg) for arg in args)
+    # If the message contains newlines, split and process each line
+    if "\n" in message:
+        lines = message.split("\n")
+        # Process each line individually, preserving any kwargs
+        for line in lines:
+            if line.strip():  # Only process non-empty lines
+                debug_print(line, **kwargs)
+        return
+    # Process single line
+    DEBUG_COUNT += 1
+    print("{}\t| {}".format(str(DEBUG_COUNT), message), **kwargs)
+
+#########################################################
+####         ^^^      ERROR HANDLING    ^^^          ####
+####      DEBUGGING        vvv       DEBUGGING       ####
+#########################################################
+
+
 def plugin_loaded():
     debug_print("Markdown2Dir plugin loaded")
     debug_print("SUBLIME_AVAILABLE =", SUBLIME_AVAILABLE)
@@ -66,6 +71,11 @@ def show_error_message(message):
     else:
         print("Error: {}".format(message))
 
+
+#########################################################
+####       ^^^ : MARKDOWN_BASE_CLASS (MDC) : ^^^     ####
+####  ERROR HANDLING  :    vvv   :  ERROR HANDLING   ####
+#########################################################
 
 class MarkdownBaseCommand(sublime_plugin.TextCommand):
 
@@ -103,7 +113,12 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             'partial_names_2_include': [],
             'partial_names_2_ignore': [],
             'attempt_injection': False,
-            'handle_file_conflicts': 'prepend_and_comment'
+            'handle_file_conflicts': 'prepend_and_comment',
+            'include_system_folders': False,
+            'output_directory_tree': True,
+            'enable_context_menu': False,
+            'enable_key_bindings': False,
+            'enable_debug_output': False
         }
 
         if SUBLIME_AVAILABLE:
@@ -125,7 +140,12 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                         'partial_names_2_include': settings.get('partial_names_2_include', default_config['partial_names_2_include']),
                         'partial_names_2_ignore': settings.get('partial_names_2_ignore', default_config['partial_names_2_ignore']),
                         'attempt_injection': settings.get('attempt_injection', default_config['attempt_injection']),
-                        'handle_file_conflicts': settings.get('handle_file_conflicts', default_config['handle_file_conflicts'])
+                        'handle_file_conflicts': settings.get('handle_file_conflicts', default_config['handle_file_conflicts']),
+                        'include_system_folders': settings.get('include_system_folders', default_config['include_system_folders']),
+                        'output_directory_tree': settings.get('output_directory_tree',default_config['output_directory_tree']),
+                        'enable_context_menu': settings.get('enable_context_menu',default_config['enable_context_menu']),
+                        'enable_key_bindings': settings.get('enable_key_bindings',default_config['enable_key_bindings']),
+                        'enable_debug_output': settings.get('enable_debug_output',default_config['enable_debug_output'])
                     }
             except Exception as e:
                 debug_print("Error loading settings: {}".format(str(e)))
@@ -133,39 +153,17 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         return default_config
 
 
-    def get_all_parent_directories(filepath, base_dir):
-        """Get all parent directories of a file path relative to base_dir."""
-        try:
-            rel_path = os.path.relpath(filepath, base_dir)
-            path_parts = rel_path.split(os.sep)
-            debug_print("Parent directories for {}: {}".format(filepath, path_parts[:-1]))
-            return path_parts[:-1]  # Exclude the filename itself
-        except Exception as e:
-            debug_print("Error getting parent directories: {}".format(str(e)))
-            return []
-
-
-    def extract_code_blocks_from_markdown(self):
-        """Extract filenames of code blocks from the markdown file."""
-        file_content = self.view.file_name()  # Replace with actual file reading logic
-        code_block_pattern = r'```(?:[^\n]*)\n([\s\S]*?)```'
-        matches = re.findall(code_block_pattern, file_content)
-        filenames = set()
-
-        for match in matches:
-            # Extract the filename from the code block
-            filename_line = match.splitlines()[0].strip()
-            filenames.add(filename_line)
-
-        return filenames
+#########################################################
+####        ^^^      DECISION MAKING     ^^^         ####
+####   LOAD CONFIG   :    vvv      :    LOAD CONFIG  ####
+#########################################################
 
 
     def should_process_path(self, path, is_dir=False):
         """Unified path processing check that matches file generation logic."""
         if is_dir:
             dir_name = os.path.basename(path)
-            # Skip system directories
-            if dir_name.startswith('.') or dir_name in ['.git', '__pycache__', '.DS_Store', '.pio']:
+            if dir_name.startswith('.') or dir_name.startswith('_') and config.get('include_system_folders') == False: # Skip system directories
                 return False
 
             # Get relative directory path components for nested directory handling
@@ -199,6 +197,7 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             rel_path = os.path.relpath(path, os.path.dirname(self.view.file_name()))
             return self.should_process_file(rel_path, self.config)
 
+
     def should_process_file(self, filepath, config):
         """Determine if a file should be processed based on all filtering criteria."""
         filename = os.path.basename(filepath)
@@ -209,7 +208,7 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         debug_print("Checking if file should be processed: {}".format(filepath))
 
         # Skip system files
-        if filename.startswith('.'):
+        if filename.startswith('.') or filename.startswith('_') and config.get('include_system_folders') == False:
             return False
 
         # Check for conflicts or non-conflicts
@@ -240,7 +239,7 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             return False
 
         # Check directories
-        include_nested = config.get('include_nested_directories', False)
+        include_nested = config.get('include_nested_directories', True)
 
         # Get all parent directories if nested directory handling is enabled
         if include_nested:
@@ -284,26 +283,10 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         return self.should_process_extension(filepath, config)
 
 
-    def get_comment_syntax(self, file_path):
-        ext = os.path.splitext(file_path)[1][1:]  # Get extension without the dot
-        start_comment = self.COMMENT_SYNTAX.get(ext, "#")  # Default to "#" if unknown
-        end_comment = self.BLOCK_COMMENT_END.get(ext, "")  # Default to "" if none
-        debug_print("Comments used, open: {}, close: {}".format(start_comment,end_comment))
-        return start_comment, end_comment
-
-
-    def is_markdown_file(self):
-        file_name = self.view.file_name()
-        return file_name and file_name.lower().endswith((".md", ".markdown", ".mdown", ".mkd", ".mkdn", ".txt"))
-
-
     def should_ignore_block(self, lang, code, filename, config):
         """Determine if a code block should be ignored based on configuration settings."""
         blocks_ignored = config.get('blocks_ignored', [])
-<<<<<<< HEAD
 
-=======
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
         # Check if block is nameless
         if 'nameless' in blocks_ignored and not filename:
             debug_print("Ignoring nameless block")
@@ -327,7 +310,7 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         # Check if file has extension
         if 'without_ext' in blocks_ignored and filename:
             if not os.path.splitext(filename)[1]:
-                debug_print("Ignoring file without extension")
+                debug_print("Ignoring block without extension")
                 return True
 
         # Check if code is empty
@@ -336,6 +319,57 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             return True
 
         return False
+
+
+    def should_process_extension(self, filename, config):
+        """Check if file extension should be processed based on configuration."""
+        if not filename:
+            return False
+        ext = os.path.splitext(filename)[1][1:].lower()
+        include_list = config.get('extensions_2_include', [])
+        ignore_list = config.get('extensions_2_ignore', [])
+        # If files_2_include is set, extension filtering is bypassed
+        if config.get('files_2_include'):
+            return True
+        # If include list is specified, only process those extensions
+        if include_list:
+            return ext in include_list
+        # Otherwise, process everything except ignored extensions
+        return ext not in ignore_list
+
+
+#########################################################
+####        ^^^       PARSE MARKDOWN     ^^^         ####
+#### DECISION MAKING :    vvv      : DECISION MAKING ####
+#########################################################
+
+
+    def get_comment_syntax(self, file_path):
+        ext = os.path.splitext(file_path)[1][1:]  # Get extension without the dot
+        start_comment = self.COMMENT_SYNTAX.get(ext, "#")  # Default to "#" if unknown
+        end_comment = self.BLOCK_COMMENT_END.get(ext, "")  # Default to "" if none
+        debug_print("Comments used, open: {}, close: {}".format(start_comment,end_comment))
+        return start_comment, end_comment
+
+
+    def is_markdown_file(self):
+        file_name = self.view.file_name()
+        return file_name and file_name.lower().endswith((".md", ".markdown", ".mdown", ".mkd", ".mkdn", ".txt"))
+
+
+    def extract_code_blocks_from_markdown(self):
+        """Extract filenames of code blocks from the markdown file."""
+        file_content = self.view.file_name()  # Replace with actual file reading logic
+        code_block_pattern = r'```(?:[^\n]*)\n([\s\S]*?)```'
+        matches = re.findall(code_block_pattern, file_content)
+        filenames = set()
+
+        for match in matches:
+            # Extract the filename from the code block
+            filename_line = match.splitlines()[0].strip()
+            filenames.add(filename_line)
+
+        return filenames
 
 
     def get_filename_from_block(self, lang_or_filename, code, preceding_line, config):
@@ -463,7 +497,6 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
     def find_code_injection_point(self, file_content, code_block, ext):
         """Find injection points in existing file based on code block content."""
         debug_print("Analyzing for code injection points")
-<<<<<<< HEAD
 
         file_lines = file_content.split('\n')
         code_lines = code_block.strip().split('\n')
@@ -478,7 +511,6 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         if ext == 'py':
             return self._find_python_injection_points(file_lines, code_lines)
 
-=======
         file_lines = file_content.split('\n')
         code_lines = code_block.strip().split('\n')
         if not code_lines:
@@ -488,40 +520,32 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         # Handle Python files differently
         if ext == 'py':
             return self._find_python_injection_points(file_lines, code_lines)
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
+
         # For other languages, try brace matching
         start_idx = None
         for i, line in enumerate(file_lines):
             if line.strip() == first_line:
                 start_idx = i
                 break
-<<<<<<< HEAD
 
         if start_idx is None:
             return None, None
 
-=======
         if start_idx is None:
             return None, None
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
+
         # If last line matches exactly and isn't just a closing brace
         if last_line != '}':
             for i in range(start_idx + 1, len(file_lines)):
                 if file_lines[i].strip() == last_line:
                     return start_idx, i
-<<<<<<< HEAD
 
-=======
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
         # If last line is '}' or no exact match was found, try brace counting
             brace_count = 0
             for line in code_lines[1:]:  # Start after first line
                 brace_count += line.count('{')
                 brace_count -= line.count('}')
-<<<<<<< HEAD
 
-=======
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
             # Now count braces in file until we match
             current_count = 0
             for i in range(start_idx + 1, len(file_lines)):
@@ -529,15 +553,9 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                 current_count -= file_lines[i].count('}')
                 if current_count == brace_count:
                     return start_idx, i
-<<<<<<< HEAD
 
         return None, None
 
-=======
-        return None, None
-
-
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
     def _find_python_injection_points(self, file_lines, code_lines):
         """Find injection points specifically for Python files."""
         debug_print("Finding Python-specific injection points")
@@ -558,65 +576,33 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             if name:
                 code_def_name = name
                 break
-<<<<<<< HEAD
 
         if not code_def_name:
             return None, None
 
-=======
-        if not code_def_name:
-            return None, None
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
         # Find matching definition in file
         start_idx = None
         end_idx = None
         current_indent = None
-<<<<<<< HEAD
 
-=======
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
         for i, line in enumerate(file_lines):
             name = get_definition_name(line)
             if name == code_def_name:
                 start_idx = i
                 current_indent = len(line) - len(line.lstrip())
                 continue
-<<<<<<< HEAD
 
-=======
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
             if start_idx is not None:
                 # Check if we've returned to the same or lower indentation level
                 if line.strip() and len(line) - len(line.lstrip()) <= current_indent:
                     end_idx = i - 1
                     break
-<<<<<<< HEAD
 
         if start_idx is not None and end_idx is None:
             end_idx = len(file_lines) - 1
 
-=======
-        if start_idx is not None and end_idx is None:
-            end_idx = len(file_lines) - 1
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
+
         return start_idx, end_idx
-
-
-    def should_process_extension(self, filename, config):
-        """Check if file extension should be processed based on configuration."""
-        if not filename:
-            return False
-        ext = os.path.splitext(filename)[1][1:].lower()
-        include_list = config.get('extensions_2_include', [])
-        ignore_list = config.get('extensions_2_ignore', [])
-        # If files_2_include is set, extension filtering is bypassed
-        if config.get('files_2_include'):
-            return True
-        # If include list is specified, only process those extensions
-        if include_list:
-            return ext in include_list
-        # Otherwise, process everything except ignored extensions
-        return ext not in ignore_list
 
 
     def inject_code_block(self, file_path, code_block, config):
@@ -663,10 +649,6 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             debug_print("Error during code injection: {}".format(str(e)))
             return False
 
-<<<<<<< HEAD
-=======
-
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
     def extract_code_blocks(self, content, output_dir, config):
         """Extract code blocks with updated extension handling."""
         debug_print("Extracting code blocks to: {}".format(output_dir))
@@ -717,52 +699,6 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
                 except Exception as e:
                     debug_print("Error processing {}: {}".format(filename, str(e)))
                     sublime.error_message("Error processing {}: {}".format(filename, str(e)))
-
-
-    def handle_file_conflict(self, file_path, code, config):
-        """Handle file conflicts based on configuration."""
-        conflict_handling = config.get('handle_file_conflicts', 'prepend_and_comment')
-
-        if conflict_handling == 'prepend_and_comment':
-            start_comment, end_comment = self.get_comment_syntax(file_path)
-            with open(file_path, 'r', encoding='utf-8') as f:
-                existing_content = f.read()
-
-            commented_content = []
-            for line in existing_content.split('\n'):
-                if line.strip():
-                    if end_comment:
-                        commented_content.append("{} {} {}".format(start_comment, line, end_comment))
-                    else:
-                        commented_content.append("{} {}".format(start_comment, line))
-                else:
-                    commented_content.append(line)
-
-            new_content = code + '\n\n' + '\n'.join(commented_content)
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(new_content)
-
-        elif conflict_handling == 'append_n_to_filename':
-            base, ext = os.path.splitext(file_path)
-            counter = 1
-            while os.path.exists("{}_{}.{}".format(base, counter, ext)):
-                counter += 1
-            with open("{}_{}.{}".format(base, counter, ext), 'w', encoding='utf-8') as f:
-                f.write(code)
-
-        elif conflict_handling == 'move_to_backup_dir':
-            backup_dir = os.path.join(os.path.dirname(file_path), 'backup')
-            os.makedirs(backup_dir, exist_ok=True)
-            backup_path = os.path.join(backup_dir, os.path.basename(file_path))
-            if os.path.exists(backup_path):
-                base, ext = os.path.splitext(backup_path)
-                counter = 1
-                while os.path.exists("{}_{}.{}".format(base, counter, ext)):
-                    counter += 1
-                backup_path = "{}_{}.{}".format(base, counter, ext)
-            os.rename(file_path, backup_path)
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(code)
 
 
     def insert_code_blocks(self, content, directory, config):
@@ -818,14 +754,73 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             debug_print("Error writing to markdown file: {}".format(str(e)))
             sublime.error_message("Error writing to markdown file: {}".format(str(e)))
 
-<<<<<<< HEAD
-    def get_files_recursive(self, directory):
-        """Gets all files in directory and subdirectories."""
-=======
+
+#########################################################
+####        ^^^       PROCESS FILES    ^^^           ####
+#### PARSE MARKDOWN :      vvv      : PARSE MARKDOWN ####
+#########################################################
+
+
+    def handle_file_conflict(self, file_path, code, config):
+        """Handle file conflicts based on configuration."""
+        conflict_handling = config.get('handle_file_conflicts', 'prepend_and_comment')
+
+        if conflict_handling == 'prepend_and_comment':
+            start_comment, end_comment = self.get_comment_syntax(file_path)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                existing_content = f.read()
+
+            commented_content = []
+            for line in existing_content.split('\n'):
+                if line.strip():
+                    if end_comment:
+                        commented_content.append("{} {} {}".format(start_comment, line, end_comment))
+                    else:
+                        commented_content.append("{} {}".format(start_comment, line))
+                else:
+                    commented_content.append(line)
+
+            new_content = code + '\n\n' + '\n'.join(commented_content)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+
+        elif conflict_handling == 'append_n_to_filename':
+            base, ext = os.path.splitext(file_path)
+            counter = 1
+            while os.path.exists("{}_{}.{}".format(base, counter, ext)):
+                counter += 1
+            with open("{}_{}.{}".format(base, counter, ext), 'w', encoding='utf-8') as f:
+                f.write(code)
+
+        elif conflict_handling == 'move_to_backup_dir':
+            backup_dir = os.path.join(os.path.dirname(file_path), 'backup')
+            os.makedirs(backup_dir, exist_ok=True)
+            backup_path = os.path.join(backup_dir, os.path.basename(file_path))
+            if os.path.exists(backup_path):
+                base, ext = os.path.splitext(backup_path)
+                counter = 1
+                while os.path.exists("{}_{}.{}".format(base, counter, ext)):
+                    counter += 1
+                backup_path = "{}_{}.{}".format(base, counter, ext)
+            os.rename(file_path, backup_path)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(code)
+
+
+    def get_all_parent_directories(filepath, base_dir):
+        """Get all parent directories of a file path relative to base_dir."""
+        try:
+            rel_path = os.path.relpath(filepath, base_dir)
+            path_parts = rel_path.split(os.sep)
+            debug_print("Parent directories for {}: {}".format(filepath, path_parts[:-1]))
+            return path_parts[:-1]  # Exclude the filename itself
+        except Exception as e:
+            debug_print("Error getting parent directories: {}".format(str(e)))
+            return []
+
 
     def get_files_recursive(self, directory, config):
         """Gets all files in directory and subdirectories, applying all filtering rules."""
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
         debug_print("Scanning directory: {}".format(directory))
         files = []
         try:
@@ -923,8 +918,13 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         lines.append("")  # Empty line after block
         return "\n".join(lines)
 
+####################################################
+#              | DIRECTORY_2_MARKDOWN |            #
+#      vvv     |           vvv        |     vvv    #
+####################################################
 
 class Dir2MarkdownCommand(MarkdownBaseCommand):
+
     def __init__(self, view=None):
         if SUBLIME_AVAILABLE and view:
             self.view = view
@@ -934,138 +934,189 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
         self.config = self.load_config() or {}
 
 
-    def get_file_language(self, filename):
-        """Determine language from file extension."""
-        ext = os.path.splitext(filename)[1][1:].lower()
-        ext_to_lang = {
-            'py': 'python',
-            'js': 'javascript',
-            'cpp': 'c++',
-            'hpp': 'c++',
-            'h': 'c++',
-            'c': 'c',
-            'cs': 'csharp',
-            'java': 'java',
-            'html': 'html',
-            'css': 'css',
-            'sql': 'sql',
-            'md': 'markdown',
-            'txt': 'text'
-        }
-        return ext_to_lang.get(ext, ext)
+    def run(self, edit=None, **kwargs):
+        """Run the command in either Sublime Text or standalone mode."""
+        debug_print("Starting Dir2Markdown command")
+        config = self.load_config()
 
-<<<<<<< HEAD
-    def generate_directory_tree(self, base_dir):
-        """Generate a visual directory tree structure using os.walk()."""
-        debug_print("Generating directory tree for: {}".format(base_dir))
+        # Determine base directory and output file
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = os.path.join(script_dir, ".example")
+        output_file = os.path.join(base_dir, "generated_example.md")
 
-        def should_exclude(name):
-            """Check if a file or directory should be excluded from the tree."""
-            # Add any folders or files you want to exclude
-            excludes = ['.git', '__pycache__', '.DS_Store', '.pio']
-            return name in excludes or name.startswith('.git')
+        if SUBLIME_AVAILABLE and self.view and self.view.file_name():
+            base_dir = os.path.dirname(self.view.file_name())
+            output_file = self.view.file_name()
+            debug_print("Using Sublime Text mode")
+        else:
+            debug_print("Using standalone mode")
 
-        def add_files_to_tree(tree_dict, path_parts, is_file):
-            """Recursively build tree dictionary."""
-            if not path_parts:
+        debug_print("Base directory: {}".format(base_dir))
+        debug_print("Output file: {}".format(output_file))
+
+        try:
+            content = []
+
+            # Only generate directory tree if enabled in config
+            if config.get('output_directory_tree', True):
+                debug_print("Generating directory tree")
+                directory_tree = self.generate_directory_tree(base_dir, config)
+                content.extend([
+                    "# Directory Structure\n",
+                    "```",
+                    directory_tree,
+                    "```\n",
+                    "# File Contents\n"
+                ])
+            else:
+                debug_print("Skipping directory tree generation")
+                content.append("# File Contents\n")
+
+            # Get filtered files using the same logic as directory tree
+            all_files = []
+            for root, _, files in os.walk(base_dir):
+                # Skip directories based on config
+                if not self.should_process_path(root, is_dir=True):
+                    debug_print("Skipping directory: {}".format(root))
+                    continue
+
+                for filename in sorted(files):
+                    full_path = os.path.join(root, filename)
+                    if not self.should_process_path(full_path, is_dir=False):
+                        debug_print("Skipping file: {}".format(filename))
+                        continue
+
+                    rel_path = os.path.relpath(full_path, base_dir)
+                    if self.should_process_file(rel_path, config):
+                        all_files.append(rel_path)
+                        debug_print("Found file: {}".format(rel_path))
+
+            if not all_files:
+                msg = "No files found in directory matching criteria"
+                debug_print(msg)
+                if SUBLIME_AVAILABLE:
+                    sublime.message_dialog(msg)
                 return
 
-            current = path_parts[0]
-            remaining = path_parts[1:]
+            for file_path in sorted(all_files):
+                try:
+                    full_path = os.path.join(base_dir, file_path)
+                    with open(full_path, 'r', encoding='utf-8') as f:
+                        file_content = f.read()
+                    block = self.format_markdown_block(file_path, file_content, config)
+                    content.append(block)
+                    debug_print("Added content for: {}".format(file_path))
+                except Exception as e:
+                    debug_print("Error processing {}: {}".format(file_path, str(e)))
 
-            if current not in tree_dict:
-                tree_dict[current] = {"files": [], "dirs": {}}
+            markdown_content = "\n".join(content)
 
-            if is_file and not remaining:
-                tree_dict[current]["files"].append(current)
-            elif not is_file and not remaining:
-                pass  # Directory already created
+            # Write the content
+            if SUBLIME_AVAILABLE and edit is not None and self.view:
+                self.view.replace(edit, sublime.Region(0, self.view.size()), markdown_content)
+                debug_print("Updated current view with generated markdown")
             else:
-                add_files_to_tree(tree_dict[current]["dirs"], remaining, is_file)
-
-        def format_tree(tree_dict, prefix="", is_last=True, is_root=False):
-            """Convert tree dictionary to formatted string."""
-            lines = []
-
-            if is_root:
-                lines.append(os.path.basename(base_dir))
-
-            # Sort files and directories
-            items = []
-
-            # Add directories
-            for dirname in sorted(tree_dict["dirs"].keys()):
-                items.append((dirname, True))
-
-            # Add files
-            for filename in sorted(tree_dict["files"]):
-                items.append((filename, False))
-
-            # Process all items
-            for idx, (name, is_dir) in enumerate(items):
-                is_last_item = (idx == len(items) - 1)
-
-                if is_root:
-                    new_prefix = "|   " if not is_last_item else "    "
-                else:
-                    new_prefix = prefix + ("|   " if not is_last_item else "    ")
-
-                lines.append(prefix + "|__ " + name)
-
-                if is_dir:
-                    lines.extend(format_tree(
-                        tree_dict["dirs"][name],
-                        new_prefix,
-                        is_last_item
-                    ))
-
-            return lines
-
-        try:
-            # Build tree structure
-            tree = {"files": [], "dirs": {}}
-
-            for root, dirs, files in os.walk(base_dir):
-                # Remove excluded directories
-                dirs[:] = [d for d in dirs if not should_exclude(d)]
-
-                # Calculate relative path
-                rel_path = os.path.relpath(root, base_dir)
-                if rel_path != ".":
-                    path_parts = rel_path.split(os.sep)
-                    add_files_to_tree(tree["dirs"], path_parts, False)
-
-                # Add files
-                for file in sorted(files):
-                    if rel_path == ".":
-                        add_files_to_tree(tree, [file], True)
-                    else:
-                        path_parts = rel_path.split(os.sep) + [file]
-                        add_files_to_tree(tree["dirs"], path_parts, True)
-
-            # Format tree
-            tree_lines = format_tree(tree, is_root=True)
-            return "\n".join(tree_lines)
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(markdown_content)
+                debug_print("Wrote markdown to: {}".format(output_file))
 
         except Exception as e:
-            debug_print("Error generating directory tree: {}".format(str(e)))
-            return "Error generating directory tree"
+            error_msg = "Error generating markdown: {}".format(str(e))
+            debug_print(error_msg)
+            if SUBLIME_AVAILABLE:
+                sublime.error_message(error_msg)
+            raise
+    # def run(self, edit=None, **kwargs):
+    #     """Run the command in either Sublime Text or standalone mode."""
+    #     debug_print("Starting Dir2Markdown command")
+    #     config = self.load_config()
+
+    #     # Determine base directory and output file
+    #     script_dir = os.path.dirname(os.path.abspath(__file__))
+    #     base_dir = os.path.join(script_dir, ".example")
+    #     output_file = os.path.join(base_dir, "generated_example.md")
+
+    #     if SUBLIME_AVAILABLE and self.view and self.view.file_name():
+    #         base_dir = os.path.dirname(self.view.file_name())
+    #         output_file = self.view.file_name()
+    #         debug_print("Using Sublime Text mode")
+    #     else:
+    #         debug_print("Using standalone mode")
+
+    #     debug_print("Base directory: {}".format(base_dir))
+    #     debug_print("Output file: {}".format(output_file))
+
+    #     try:
+    #         # Generate directory tree first
+    #         directory_tree = self.generate_directory_tree(base_dir, config)
+
+    #         # Start content with directory tree
+    #         content = [
+    #             "# Directory Structure\n",
+    #             "```",
+    #             directory_tree,
+    #             "```\n",
+    #             "# File Contents\n"
+    #         ]
+    #         # Skip test output directories and focus on original files
+    #         all_files = []
+    #         for root, _, files in os.walk(base_dir):
+    #             if "output_" in root:
+    #                 continue
+    #             for filename in sorted(files):
+    #                 if filename.startswith('.') or filename.endswith('.md'):
+    #                     continue
+    #                 full_path = os.path.join(root, filename)
+    #                 rel_path = os.path.relpath(full_path, base_dir)
+    #                 # Check if the file extension should be processed based on config
+    #                 if self.should_process_extension(rel_path, config):
+    #                     all_files.append(rel_path)
+    #                     debug_print("Found file: {}".format(rel_path))
+    #                 else:
+    #                     debug_print("Skipping file due to extension settings: {}".format(rel_path))
+
+    #         if not all_files:
+    #             msg = "No files found in directory matching extension criteria"
+    #             debug_print(msg)
+    #             if SUBLIME_AVAILABLE:
+    #                 sublime.message_dialog(msg)
+    #             return
+
+    #         for file_path in sorted(all_files):
+    #             try:
+    #                 full_path = os.path.join(base_dir, file_path)
+    #                 with open(full_path, 'r', encoding='utf-8') as f:
+    #                     file_content = f.read()
+    #                 block = self.format_markdown_block(file_path, file_content, config)
+    #                 content.append(block)
+    #                 debug_print("Added content for: {}".format(file_path))
+    #             except Exception as e:
+    #                 debug_print("Error processing {}: {}".format(file_path, str(e)))
+
+    #         markdown_content = "\n".join(content)
+
+    #         # Write the content
+    #         if SUBLIME_AVAILABLE and edit is not None and self.view:
+    #             self.view.replace(edit, sublime.Region(0, self.view.size()), markdown_content)
+    #             debug_print("Updated current view with generated markdown")
+    #         else:
+    #             with open(output_file, 'w', encoding='utf-8') as f:
+    #                 f.write(markdown_content)
+    #             debug_print("Wrote markdown to: {}".format(output_file))
+
+    #     except Exception as e:
+    #         error_msg = "Error generating markdown: {}".format(str(e))
+    #         debug_print(error_msg)
+    #         if SUBLIME_AVAILABLE:
+    #             sublime.error_message(error_msg)
+    #         raise
 
 
-=======
+###################################################
+#      ^^^      | BUILD FILE TREE |     ^^^       #
+# CLASS MEMBERS |      vvv        | CLASS MEMBERS #
+###################################################
 
-    def get_all_parent_directories(self, filepath, base_dir):
-        """Get all parent directories of a file path relative to base_dir."""
-        try:
-            rel_path = os.path.relpath(filepath, base_dir)
-            path_parts = rel_path.split(os.sep)
-            debug_print("Parent directories for {}: {}".format(filepath, path_parts[:-1]))
-            return path_parts[:-1]  # Exclude the filename itself
-        except Exception as e:
-            debug_print("Error getting parent directories: {}".format(str(e)))
-            return []
-
-# ------------------------ Directrory Tree Code ---------------------------
 
     def generate_directory_tree(self, base_dir, config):
         """Generate a visual directory tree structure using os.walk()."""
@@ -1144,9 +1195,45 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
             return "Error generating directory tree"
 
 
-# ------------------------ Directrory Tree Code ---------------------------
+############################################################
+#        ^^^      | PARSE FILES/MARKDOWN |    ^^^          #
+# BUILD FILE TREE |          vvv         | BUILD FILE TREE #
+############################################################
 
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
+
+    def get_file_language(self, filename):
+        """Determine language from file extension."""
+        ext = os.path.splitext(filename)[1][1:].lower()
+        ext_to_lang = {
+            'py': 'python',
+            'js': 'javascript',
+            'cpp': 'c++',
+            'hpp': 'c++',
+            'h': 'c++',
+            'c': 'c',
+            'cs': 'csharp',
+            'java': 'java',
+            'html': 'html',
+            'css': 'css',
+            'sql': 'sql',
+            'md': 'markdown',
+            'txt': 'text'
+        }
+        return ext_to_lang.get(ext, ext)
+
+
+    def get_all_parent_directories(self, filepath, base_dir):
+        """Get all parent directories of a file path relative to base_dir."""
+        try:
+            rel_path = os.path.relpath(filepath, base_dir)
+            path_parts = rel_path.split(os.sep)
+            debug_print("Parent directories for {}: {}".format(filepath, path_parts[:-1]))
+            return path_parts[:-1]  # Exclude the filename itself
+        except Exception as e:
+            debug_print("Error getting parent directories: {}".format(str(e)))
+            return []
+
+
     def format_markdown_block(self, file_path, content, config):
         """Format a single file as a markdown code block."""
         naming_convention = config.get("file_naming_convention", "on_fence")
@@ -1171,7 +1258,7 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
         if is_dir:
             dir_name = os.path.basename(path)
             # Skip system directories
-            if dir_name.startswith('.') or dir_name in ['.git', '__pycache__', '.DS_Store', '.pio']:
+            if dir_name.startswith('.') and self.config.get('include_system_folders') == False:  # Fixed: using self.config instead of config
                 return False
 
             # Get relative directory path components for nested directory handling
@@ -1205,96 +1292,14 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
             rel_path = os.path.relpath(path, os.path.dirname(self.view.file_name()))
             return self.should_process_file(rel_path, self.config)
 
-    def run(self, edit=None, **kwargs):
-        """Run the command in either Sublime Text or standalone mode."""
-        debug_print("Starting Dir2Markdown command")
-        config = self.load_config()
+######################################################################
+#        ^^^           | MARKDOWN_2_DIRECTORY |         ^^^          #
+# PARSE FILES/MARKDOWN |          vvv         | PARSE FILES/MARKDOWN #
+######################################################################
 
-        # Determine base directory and output file
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        base_dir = os.path.join(script_dir, ".example")
-        output_file = os.path.join(base_dir, "generated_example.md")
-
-        if SUBLIME_AVAILABLE and self.view and self.view.file_name():
-            base_dir = os.path.dirname(self.view.file_name())
-            output_file = self.view.file_name()
-            debug_print("Using Sublime Text mode")
-        else:
-            debug_print("Using standalone mode")
-
-        debug_print("Base directory: {}".format(base_dir))
-        debug_print("Output file: {}".format(output_file))
-
-        try:
-            # Generate directory tree first
-<<<<<<< HEAD
-            directory_tree = self.generate_directory_tree(base_dir)
-=======
-            directory_tree = self.generate_directory_tree(base_dir, config)
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
-
-            # Start content with directory tree
-            content = [
-                "# Directory Structure\n",
-                "```",
-                directory_tree,
-                "```\n",
-                "# File Contents\n"
-            ]
-            # Skip test output directories and focus on original files
-            all_files = []
-            for root, _, files in os.walk(base_dir):
-                if "output_" in root:
-                    continue
-                for filename in sorted(files):
-                    if filename.startswith('.') or filename.endswith('.md'):
-                        continue
-                    full_path = os.path.join(root, filename)
-                    rel_path = os.path.relpath(full_path, base_dir)
-                    # Check if the file extension should be processed based on config
-                    if self.should_process_extension(rel_path, config):
-                        all_files.append(rel_path)
-                        debug_print("Found file: {}".format(rel_path))
-                    else:
-                        debug_print("Skipping file due to extension settings: {}".format(rel_path))
-
-            if not all_files:
-                msg = "No files found in directory matching extension criteria"
-                debug_print(msg)
-                if SUBLIME_AVAILABLE:
-                    sublime.message_dialog(msg)
-                return
-
-            for file_path in sorted(all_files):
-                try:
-                    full_path = os.path.join(base_dir, file_path)
-                    with open(full_path, 'r', encoding='utf-8') as f:
-                        file_content = f.read()
-                    block = self.format_markdown_block(file_path, file_content, config)
-                    content.append(block)
-                    debug_print("Added content for: {}".format(file_path))
-                except Exception as e:
-                    debug_print("Error processing {}: {}".format(file_path, str(e)))
-
-            markdown_content = "\n".join(content)
-
-            # Write the content
-            if SUBLIME_AVAILABLE and edit is not None and self.view:
-                self.view.replace(edit, sublime.Region(0, self.view.size()), markdown_content)
-                debug_print("Updated current view with generated markdown")
-            else:
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write(markdown_content)
-                debug_print("Wrote markdown to: {}".format(output_file))
-
-        except Exception as e:
-            error_msg = "Error generating markdown: {}".format(str(e))
-            debug_print(error_msg)
-            if SUBLIME_AVAILABLE:
-                sublime.error_message(error_msg)
-            raise
 
 class Markdown2DirCommand(MarkdownBaseCommand):
+
     def run(self, edit, **kwargs):
         debug_print("Running Markdown2Dir command")
         if not self.is_markdown_file():
@@ -1327,6 +1332,12 @@ class Markdown2DirCommand(MarkdownBaseCommand):
             sublime.error_message("No content found in the markdown file.")
 
 
+#####################################################
+#      ^^^       |  CLASS MEMBERS |      ^^^        #
+# TEST FUNCTIONS |       vvv      | TEST FUNCTIONS  #
+#####################################################
+
+
 def test_markdown_extraction():
     """
     Test function for direct Python execution.
@@ -1348,7 +1359,9 @@ def test_markdown_extraction():
                 "partial_names_2_include": [],
                 "partial_names_2_ignore": [],
                 "attempt_injection": False,
-                "handle_file_conflicts": "prepend_and_comment"
+                "handle_file_conflicts": "prepend_and_comment",
+                "include_system_folders": False,
+                "include_system_files": False
             }
 
         def get(self, key, default=None):
@@ -1426,6 +1439,11 @@ void test_function() {
         debug_print("Error during testing: {}".format(str(e)))
         raise
 
+#######################################################################
+#       ^^^            | PLUGIN TEST FUNCTIONS |          ^^^         #
+# CLASS TEST FUNCTIONS |          vvv          | CLASS TEST FUNCTIONS #
+#######################################################################
+
 def test_markdown_extraction_edge_cases():
     """
     Test function for edge cases.
@@ -1446,7 +1464,7 @@ def test_markdown_extraction_edge_cases():
         "特殊字符.py",  # Contains non-ASCII characters
         "file.with.many.dots.txt",
         "UPPERCASEFILE.CPP",
-        "__hidden_file__.md",
+        ".__hidden_file__.md",
     ]
     for filename in unusual_filenames:
         with open(os.path.join(nested_dir, filename), "w", encoding="utf-8") as f:
@@ -1488,6 +1506,11 @@ def test_markdown_extraction_edge_cases():
                 debug_print("File: {}".format(file))
     except Exception as e:
         debug_print("Error during edge case testing: {}".format(str(e)))
+
+##################################################################
+#        ^^^          | PROFILING FUNCTION |   ^^^               #
+# FILE TEST FUNCTIONS |        vvv         | FILE TEST FUNCTIONS #
+##################################################################
 
 if PROFILE_PLUGIN and __main__ == "__main__":
     import cProfile
