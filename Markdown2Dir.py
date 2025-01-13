@@ -51,11 +51,6 @@ def debug_print(*args, **kwargs):
     DEBUG_COUNT += 1
     print("{}\t| {}".format(str(DEBUG_COUNT), message), **kwargs)
 
-#########################################################
-####         ^^^      ERROR HANDLING    ^^^          ####
-####      DEBUGGING        vvv       DEBUGGING       ####
-#########################################################
-
 
 def plugin_loaded():
     debug_print("Markdown2Dir plugin loaded")
@@ -72,10 +67,10 @@ def show_error_message(message):
         print("Error: {}".format(message))
 
 
-#########################################################
-####       ^^^ : MARKDOWN_BASE_CLASS (MDC) : ^^^     ####
-####  ERROR HANDLING  :    vvv   :  ERROR HANDLING   ####
-#########################################################
+################################################################################
+####################       ^^^        | MARKDOWN_BASE_CLASS ####################
+####################  ERROR HANDLING  |         vvv         ####################
+################################################################################
 
 class MarkdownBaseCommand(sublime_plugin.TextCommand):
 
@@ -153,10 +148,10 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         return default_config
 
 
-#########################################################
-####        ^^^      DECISION MAKING     ^^^         ####
-####   LOAD CONFIG   :    vvv      :    LOAD CONFIG  ####
-#########################################################
+##########################################################################
+####################        ^^^     | DECISION MAKING ####################
+####################   LOAD CONFIG  |     vvv         ####################
+##########################################################################
 
 
     def should_process_path(self, path, is_dir=False):
@@ -338,10 +333,10 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         return ext not in ignore_list
 
 
-#########################################################
-####        ^^^       PARSE MARKDOWN     ^^^         ####
-#### DECISION MAKING :    vvv      : DECISION MAKING ####
-#########################################################
+##########################################################################
+####################        ^^^      | PARSE MARKDOWN ####################
+#################### DECISION MAKING |       vvv      ####################
+##########################################################################
 
 
     def get_comment_syntax(self, file_path):
@@ -755,10 +750,10 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
             sublime.error_message("Error writing to markdown file: {}".format(str(e)))
 
 
-#########################################################
-####        ^^^       PROCESS FILES    ^^^           ####
-#### PARSE MARKDOWN :      vvv      : PARSE MARKDOWN ####
-#########################################################
+#########################################################################
+####################      ^^^       |  PROCESS FILES ####################
+#################### PARSE MARKDOWN |        vvv     ####################
+#########################################################################
 
 
     def handle_file_conflict(self, file_path, code, config):
@@ -918,10 +913,10 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         lines.append("")  # Empty line after block
         return "\n".join(lines)
 
-####################################################
-#              | DIRECTORY_2_MARKDOWN |            #
-#      vvv     |           vvv        |     vvv    #
-####################################################
+################################################################################
+####################       ^^^       | DIRECTORY_2_MARKDOWN ####################
+####################  PROCESS FILES  |           vvv        ####################
+################################################################################
 
 class Dir2MarkdownCommand(MarkdownBaseCommand):
 
@@ -1026,96 +1021,12 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
             if SUBLIME_AVAILABLE:
                 sublime.error_message(error_msg)
             raise
-    # def run(self, edit=None, **kwargs):
-    #     """Run the command in either Sublime Text or standalone mode."""
-    #     debug_print("Starting Dir2Markdown command")
-    #     config = self.load_config()
-
-    #     # Determine base directory and output file
-    #     script_dir = os.path.dirname(os.path.abspath(__file__))
-    #     base_dir = os.path.join(script_dir, ".example")
-    #     output_file = os.path.join(base_dir, "generated_example.md")
-
-    #     if SUBLIME_AVAILABLE and self.view and self.view.file_name():
-    #         base_dir = os.path.dirname(self.view.file_name())
-    #         output_file = self.view.file_name()
-    #         debug_print("Using Sublime Text mode")
-    #     else:
-    #         debug_print("Using standalone mode")
-
-    #     debug_print("Base directory: {}".format(base_dir))
-    #     debug_print("Output file: {}".format(output_file))
-
-    #     try:
-    #         # Generate directory tree first
-    #         directory_tree = self.generate_directory_tree(base_dir, config)
-
-    #         # Start content with directory tree
-    #         content = [
-    #             "# Directory Structure\n",
-    #             "```",
-    #             directory_tree,
-    #             "```\n",
-    #             "# File Contents\n"
-    #         ]
-    #         # Skip test output directories and focus on original files
-    #         all_files = []
-    #         for root, _, files in os.walk(base_dir):
-    #             if "output_" in root:
-    #                 continue
-    #             for filename in sorted(files):
-    #                 if filename.startswith('.') or filename.endswith('.md'):
-    #                     continue
-    #                 full_path = os.path.join(root, filename)
-    #                 rel_path = os.path.relpath(full_path, base_dir)
-    #                 # Check if the file extension should be processed based on config
-    #                 if self.should_process_extension(rel_path, config):
-    #                     all_files.append(rel_path)
-    #                     debug_print("Found file: {}".format(rel_path))
-    #                 else:
-    #                     debug_print("Skipping file due to extension settings: {}".format(rel_path))
-
-    #         if not all_files:
-    #             msg = "No files found in directory matching extension criteria"
-    #             debug_print(msg)
-    #             if SUBLIME_AVAILABLE:
-    #                 sublime.message_dialog(msg)
-    #             return
-
-    #         for file_path in sorted(all_files):
-    #             try:
-    #                 full_path = os.path.join(base_dir, file_path)
-    #                 with open(full_path, 'r', encoding='utf-8') as f:
-    #                     file_content = f.read()
-    #                 block = self.format_markdown_block(file_path, file_content, config)
-    #                 content.append(block)
-    #                 debug_print("Added content for: {}".format(file_path))
-    #             except Exception as e:
-    #                 debug_print("Error processing {}: {}".format(file_path, str(e)))
-
-    #         markdown_content = "\n".join(content)
-
-    #         # Write the content
-    #         if SUBLIME_AVAILABLE and edit is not None and self.view:
-    #             self.view.replace(edit, sublime.Region(0, self.view.size()), markdown_content)
-    #             debug_print("Updated current view with generated markdown")
-    #         else:
-    #             with open(output_file, 'w', encoding='utf-8') as f:
-    #                 f.write(markdown_content)
-    #             debug_print("Wrote markdown to: {}".format(output_file))
-
-    #     except Exception as e:
-    #         error_msg = "Error generating markdown: {}".format(str(e))
-    #         debug_print(error_msg)
-    #         if SUBLIME_AVAILABLE:
-    #             sublime.error_message(error_msg)
-    #         raise
 
 
-###################################################
-#      ^^^      | BUILD FILE TREE |     ^^^       #
-# CLASS MEMBERS |      vvv        | CLASS MEMBERS #
-###################################################
+#########################################################################
+####################      ^^^      | BUILD FILE TREE ####################
+#################### CLASS MEMBERS |      vvv        ####################
+#########################################################################
 
 
     def generate_directory_tree(self, base_dir, config):
@@ -1195,10 +1106,10 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
             return "Error generating directory tree"
 
 
-############################################################
-#        ^^^      | PARSE FILES/MARKDOWN |    ^^^          #
-# BUILD FILE TREE |          vvv         | BUILD FILE TREE #
-############################################################
+################################################################################
+####################        ^^^      | PARSE FILES/MARKDOWN ####################
+#################### BUILD FILE TREE |          vvv         ####################
+################################################################################
 
 
     def get_file_language(self, filename):
@@ -1292,10 +1203,10 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
             rel_path = os.path.relpath(path, os.path.dirname(self.view.file_name()))
             return self.should_process_file(rel_path, self.config)
 
-######################################################################
-#        ^^^           | MARKDOWN_2_DIRECTORY |         ^^^          #
-# PARSE FILES/MARKDOWN |          vvv         | PARSE FILES/MARKDOWN #
-######################################################################
+#####################################################################################
+####################        ^^^           | MARKDOWN_2_DIRECTORY ####################
+#################### PARSE FILES/MARKDOWN |          vvv         ####################
+#####################################################################################
 
 
 class Markdown2DirCommand(MarkdownBaseCommand):
@@ -1332,10 +1243,10 @@ class Markdown2DirCommand(MarkdownBaseCommand):
             sublime.error_message("No content found in the markdown file.")
 
 
-#####################################################
-#      ^^^       |  CLASS MEMBERS |      ^^^        #
-# TEST FUNCTIONS |       vvv      | TEST FUNCTIONS  #
-#####################################################
+#########################################################################
+####################      ^^^       |  CLASS MEMBERS ####################
+#################### TEST FUNCTIONS |       vvv      ####################
+#########################################################################
 
 
 def test_markdown_extraction():
@@ -1439,10 +1350,10 @@ void test_function() {
         debug_print("Error during testing: {}".format(str(e)))
         raise
 
-#######################################################################
-#       ^^^            | PLUGIN TEST FUNCTIONS |          ^^^         #
-# CLASS TEST FUNCTIONS |          vvv          | CLASS TEST FUNCTIONS #
-#######################################################################
+######################################################################################
+####################       ^^^            | PLUGIN TEST FUNCTIONS ####################
+#################### CLASS TEST FUNCTIONS |          vvv          ####################
+######################################################################################
 
 def test_markdown_extraction_edge_cases():
     """
@@ -1507,10 +1418,10 @@ def test_markdown_extraction_edge_cases():
     except Exception as e:
         debug_print("Error during edge case testing: {}".format(str(e)))
 
-##################################################################
-#        ^^^          | PROFILING FUNCTION |   ^^^               #
-# FILE TEST FUNCTIONS |        vvv         | FILE TEST FUNCTIONS #
-##################################################################
+##################################################################################
+####################        ^^^          | PROFILING FUNCTION ####################
+#################### FILE TEST FUNCTIONS |        vvv         ####################
+##################################################################################
 
 if PROFILE_PLUGIN and __main__ == "__main__":
     import cProfile
