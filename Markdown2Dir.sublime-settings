@@ -1,13 +1,8 @@
 {
     // ===== General Guidelines =====
     // IMPORTANT: Configure these settings before starting your project.
-    // USAGE: To use these settings, copy and paste everything in this file into your `Default - User` file.
     // The plugin generates markdown from directories and vice versa using the rules below.
     // Save the markdown file in the same directory as the project files to be processed.
-
-    // Commands:
-    // - "Build Directory 2 Markdown": Generate markdown from existing files.
-    // - "Build Markdown 2 Directory": Generate files from a markdown file.
 
     // ===== Settings =====
 
@@ -24,109 +19,112 @@
     //       // Code content
     //       ```
     // - "after_fence":
-    //       ```
+    //       ```cpp
     //       // path/to/file.cpp
     //       // Code content
     //       ```
 
-    "blocks_ignored": ["readme", "properties", "lessthan_3", "nameless", "without_ext"],
+    "blocks_ignored": ["lessthan_3", "nameless", "readme", "properties", "without_ext"],
     // Specifies which code blocks to ignore during processing:
-    // - "conflicts": Ignores blocks w/ existing files and files w/ matching blocks.
-    // - "non-conflicts": Ignores blocks w/o matching files and files w/o matching blocks.
-    // - "readme": Ignore blocks containing "readme" or "README".
-    // - "properties": Ignore blocks containing "properties" or "PROPERTIES".
-    // - "lessthan_<N>": Ignore blocks smaller than N lines (default: 3).
-    // - "nameless": Ignore blocks without filenames.
-    // - "without_ext": Ignore files without extensions.
-    // - "none": Include all blocks (overrides other settings).
-    //   Note: Nameless files will be named using the first available number and default extension.
+    // - "readme": Ignore blocks containing "readme" or "README"
+    // - "properties": Ignore blocks containing "properties" or "PROPERTIES"
+    // - "lessthan_3": Ignore blocks smaller than 3 lines
+    // - "nameless": Ignore blocks without filenames
+    // - "without_ext": Ignore files without extensions
+    // Note: Empty blocks are always ignored regardless of settings
 
     "extensions_2_include": [],
-    // Specify file extensions to include (overrides "extensions_2_ignore").
+    // Specify file extensions to include (takes precedence over "extensions_2_ignore")
     // Example: ["cpp", "py", "txt"]
-    // Leave empty to include all extensions.
+    // Leave empty to use extension ignore list instead
 
-    "extensions_2_ignore": [],
-    // Specify file extensions to exclude (ignored if "extensions_2_include" is set).
+    "extensions_2_ignore": [
+        "o", "a", "so", "dll", "exe", "bin", "pyc", "pyo", "pyd",
+        "db", "sqlite", "sqlite3", "log", "tmp", "temp"
+    ],
+    // Specify file extensions to exclude (used only if "extensions_2_include" is empty)
     // Example: ["log", "tmp"]
-    // Leave empty to include all extensions.
+    // Leave empty to include all extensions
 
     "directories_2_include": [],
-    // List directories to include during processing (overrides "directories_2_ignore").
+    // List directories to include during processing (takes precedence over "directories_2_ignore")
     // Example: ["src", "include"]
-    // Leave empty to include all directories.
+    // Leave empty to use directory ignore list instead
 
-    "directories_2_ignore": [],
-    // List directories to exclude during processing (used only if "directories_2_include" is empty).
+    "directories_2_ignore": [
+        ".git", ".svn", "__pycache__", "node_modules", ".pio",
+        "build", "dist", "target", "out", "bin", "obj"
+    ],
+    // List directories to exclude from processing (used only if "directories_2_include" is empty)
     // Example: ["build", "temp"]
+    // Also excludes their subdirectories if "include_nested_directories" is true
 
     "include_nested_directories": true,
     // Options: true, false
-    // If true, nested directories under the specified parent are included or excluded based on rules.
+    // If true, applies directory include/ignore rules to all subdirectories
+    // If false, only applies rules to immediate directory names
 
     "files_2_include": [],
-    // Specify exact filenames (case-sensitive) to include during processing.
+    // Specify exact filenames to include (takes precedence over all other file filters)
     // Example: ["main.cpp", "config.json"]
-    // Overrides all other file-related settings.
+    // Files listed here will be processed regardless of other settings
 
     "files_2_ignore": [],
-    // Specify exact filenames (case-sensitive) to exclude during processing.
-    // Used only if "files_2_include" is empty.
+    // Specify exact filenames to exclude (used only if "files_2_include" is empty)
     // Example: ["debug.log", "README.md"]
+    // Files listed here will be ignored unless specified in "files_2_include"
 
     "partial_names_2_include": [],
-    // Specify keywords to include files whose names contain these terms (case-insensitive).
+    // Specify keywords to include files and directories whose names contain these terms
     // Example: ["config", "settings"]
+    // Case-insensitive matching
 
-    "partial_names_2_ignore": [],
-    // Specify keywords to exclude files whose names contain these terms (case-insensitive).
+    "partial_names_2_ignore": [
+        ".gitignore", ".DS_Store", "Thumbs.db", ".env"
+    ],
+    // Specify keywords to exclude files and directories whose names contain these terms
     // Example: ["debug", "temp"]
+    // Case-insensitive matching
 
     "attempt_injection": false,
     // Options: true, false
-    // EXPERIMENTAL: Determines how to handle code blocks for existing files.
-    // - true: Injects new code blocks into existing files, commenting out replaced sections.
-    // - false: Handles conflicts using the "handle_file_conflicts" setting.
+    // When true, attempts to intelligently inject new code into existing files:
+    // - For Python: Matches function/class definitions
+    // - For other languages: Uses brace matching and content comparison
+    // - Comments out replaced sections using appropriate syntax for the file type
+    // When false, uses "handle_file_conflicts" setting instead
 
     "handle_file_conflicts": "prepend_and_comment",
-    // Options: "prepend_and_comment", "append_n_to_filename", "append_oN_to_ext", "move_to_backup_dir"
-    // Specifies how to handle file conflicts during processing:
-    // - "prepend_and_comment": Adds new code at the start of the file and comments out existing content.
-    // - "append_n_to_filename": Appends a number (e.g., "file_1.cpp") to create a new file.
-    // - "append_oN_to_ext": Adds ".oN" to the extension (e.g., "file.o1.cpp").
-    // - "move_to_backup_dir": Moves conflicting files to a "backup" directory and renames if needed.
-
-    // ===== Notes =====
-    // Use experimental features like "attempt_injection" cautiously, as they may produce unexpected
-    // results. Always back up your data before processing.
+    // Options: "prepend_and_comment", "append_n_to_filename", "move_to_backup_dir"
+    // Determines how to handle existing files during processing:
+    // - "prepend_and_comment": Adds new code at start, comments out existing content
+    // - "append_n_to_filename": Creates new file with incremented number (file_1.cpp)
+    // - "move_to_backup_dir": Moves existing file to backup/ directory before writing
 
     "include_system_folders": false,
     // Options: true, false
-    // If true, includes folders (and files) that begin with '.' or '_' in directory traversal
-    // If false, skips folders like .git, __pycache__, etc.
+    // If true, processes folders/files that begin with '.' or '_'
+    // If false, skips system folders like .git, __pycache__, etc.
 
     "output_directory_tree": true,
-    // When building a markdown file from a directory, a directory tree is included at the beginning of the
-    // file to provide an overview of the files that have been introduced to the newly created markdown file.
-    // Default is true.
+    // Options: true, false
+    // When true, includes a visual directory tree at the start of generated markdown
+    // Tree shows the structure of all processed files and directories
 
     "enable_context_menu": false,
     // Options: true, false
-    // If true, two entries will be added to the context menu; `Directory 2 Markdown` & `Markdown 2 Directory`.
-    // By default this option is false; however, if you intend to use this plugin ofter, for convience you
-    // would likey want to set this to `true`.
+    // Adds "Directory 2 Markdown" and "Markdown 2 Directory" to context menu
+    // Changes require restart of Sublime Text to take effect
 
     "enable_key_bindings": false,
     // Options: true, false
-    // If true, the key bindings for this plugin will be active; if you wish to remap the default keys due
-    // to conflict or for personal preference, simply go to `Preferences` -> `Key Bindings` and adjust it to
-    // which ever keys you prefer. Default keys for this plugin are:
-    //  `ctrl+alt+m` (`command+alt+m` for Mac) --> Directory 2 Markdown
-    //  `alt+shift+m` (same on Mac) --> Markdown 2 Directory
-
+    // Default key bindings (when enabled):
+    // - Directory 2 Markdown: ctrl+alt+m (command+alt+m on Mac)
+    // - Markdown 2 Directory: alt+shift+m
+    // Customize in Preferences -> Key Bindings
 
     "enable_debug_output": false
     // Options: true, false
-    // If you want to see what's going on under the hood, enable this setting and open the console before
-    // running a command to get a detailed account of the operations.
+    // When true, outputs detailed operation logs to the console
+    // Useful for troubleshooting or understanding the process flow
 }

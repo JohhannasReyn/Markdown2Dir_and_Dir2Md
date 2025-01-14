@@ -66,21 +66,21 @@ Include only files with specific extensions. Values should exclude the `.` (e.g.
 #### **`extensions_2_ignore`**
 **Example**: `["log", "tmp"]`
 
-Ignore files with specific extensions. This setting is ignored if `extensions_2_include` is specified.
+Ignore files with specific extensions.
 
 ---
 
 #### **`directories_2_include`**
 **Example**: `["src", "include"]`
 
-Include specific directories for markdown generation or building files. If specified, `directories_2_ignore` is ignored.
+Include specific directories for markdown generation or building files.
 
 ---
 
 #### **`directories_2_ignore`**
 **Example**: `["build", "temp"]`
 
-Ignore specific directories. This setting is ignored if `directories_2_include` is specified.
+Ignore specific directories.
 
 ---
 
@@ -94,14 +94,14 @@ If `true`, includes/excludes nested directories based on the parent directory ru
 #### **`files_2_include`**
 **Example**: `["main.cpp", "config.json"]`
 
-Include specific files (case-sensitive) for markdown generation or directory creation. Overrides other file-related settings.
+Include specific files (case-sensitive) for markdown generation or directory creation.
 
 ---
 
 #### **`files_2_ignore`**
 **Example**: `["debug.log", "README.md"]`
 
-Ignore specific files (case-sensitive) during processing. Used only if `files_2_include` is empty.
+Ignore specific files (case-sensitive) during processing.
 
 ---
 
@@ -115,7 +115,7 @@ Include files whose names contain specified keywords (case-insensitive).
 #### **`partial_names_2_ignore`**
 **Example**: `["debug", "temp"]`
 
-Ignore files whose names contain specified keywords (case-insensitive). Overrides `partial_names_2_include` if both match.
+Ignore files whose names contain specified keywords (case-insensitive).
 
 ---
 
@@ -153,5 +153,9 @@ Defines how to handle conflicting files:
 ---
 
 ### Additional Notes
+
+- **Inclusion/Exclusion Conflicts**: All filters are applied constructively, meaning you can apply rules for each filter and they will all be applied together for generating a markdown file, or for generating a directory from markdown. Any files or directories that have conflicting filters will be included.
+
 - **Use Experimental Features with Caution**: Settings like `attempt_injection` may have unexpected results. Always back up your data.
+
 - **Customize for Your Workflow**: Adjust the settings to suit the structure and needs of your project.

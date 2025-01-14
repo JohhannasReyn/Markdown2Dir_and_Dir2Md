@@ -1,19 +1,3 @@
-<<<<<<< HEAD
-{
-  "name": "Markdown2Dir",
-  "description": "A Sublime Text plugin to manage markdown files and directories efficiently.",
-  "author": "Johhannas Reyn",
-  "homepage": "https://github.com/JohhannasReyn/Markdown2Dir_and_Dir2Md",
-  "issues": "https://github.com/JohhannasReyn/Markdown2Dir_and_Dir2Md/issues",
-  "releases": [
-    {
-      "sublime_text": "*",
-      "platforms": ["*"]
-    }
-  ],
-  "dependencies": []
-}
-=======
 {
   "name": "Markdown2Dir",
   "description": "A Sublime Text plugin to generate files from a markdown file, or vice versa, efficiently.",
@@ -28,4 +12,3 @@
   ],
   "dependencies": []
 }
->>>>>>> d11e747 (Added directory tree and new file/directory filters)
