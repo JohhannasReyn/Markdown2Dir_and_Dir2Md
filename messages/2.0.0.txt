@@ -1,4 +1,4 @@
-Markdown2Dir 1.0.0
+Markdown2Dir 2.0.0
 ------------------
 
 This is a plugin for Sublime Text that enhances productivity when working with Markdown files by enabling seamless extraction and reinsertion of code blocks between a Markdown document and its parent directory.
@@ -23,5 +23,5 @@ You can install Markdown2Dir via Sublime Text's command palette:
 - `Package Control: Install Package` -> Search for `Markdown2Dir`.
 
 Plugin Home:
-Find the latest updates and contribute to the plugin at:  
+Find the latest updates and contribute to the plugin at:
 [https://github.com/JohhannasReyn/Markdown2Dir](https://github.com/JohhannasReyn/Markdown2Dir)

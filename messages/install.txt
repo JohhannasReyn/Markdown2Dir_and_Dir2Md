@@ -24,14 +24,13 @@ Suggested key bindings:
 - `Ctrl+Alt+M`: Trigger "Directory to Markdown"
 - `Alt+Shift+M`: Trigger "Markdown to Directory"
 
-These can be enabled or customized in the Sublime keymap file: `Default (<your OS>).sublime-keymap`.
+These can be enabled via the plugin's user settings.
 
 ### Plugin Settings
-Available options in `Markdown2Dir.sublime-settings`:
+Available options found in: `Preferences` -> `Package Settings` -> `Markdown2Dir` -> `Settings - Default`:
 
-- **File Naming Convention**: Customize how filenames are generated for code blocks.
-- **Ignored Blocks**: Specify blocks or extensions to exclude during extraction.
-- **Conflict Handling**: Define how file conflicts are resolved (e.g., prepend comments, append unique identifiers, etc.).
+ - Copy the default settings into your 'Settings - User' file for proper implementation.
+ - All settings are thoroughly documented.
 
 ### Support
 If you encounter any issues or discover a bug, please reach out:

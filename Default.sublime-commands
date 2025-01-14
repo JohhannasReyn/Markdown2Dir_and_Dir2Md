@@ -1,10 +1,10 @@
 [
     {
-        "caption": "Build: Build Markdown From Directory",
+        "caption": "Markdown2Dir: Convert Directory to Markdown",
         "command": "dir2_markdown"
     },
     {
-        "caption": "Build: Build Directory From Markdown",
+        "caption": "Markdown2Dir: Convert Markdown to Directory",
         "command": "markdown2_dir"
     }
 ]

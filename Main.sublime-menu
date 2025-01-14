@@ -1,16 +1,23 @@
 [
     {
         "caption": "Tools",
-        "mnemonic": "T",
+        "mnemonic": "t",
         "id": "tools",
-        "children": [
+        "children":
+        [
             {
-                "caption": "Build Directory from Markdown",
-                "command": "markdown2_dir"
-            },
-            {
-                "caption": "Build Markdown from Directory",
-                "command": "dir2_markdown"
+                "caption": "Markdown2Dir",
+                "children":
+                [
+                    {
+                        "caption": "Convert Directory to Markdown",
+                        "command": "dir2_markdown"
+                    },
+                    {
+                        "caption": "Convert Markdown to Directory",
+                        "command": "markdown2_dir"
+                    }
+                ]
             }
         ]
     },
