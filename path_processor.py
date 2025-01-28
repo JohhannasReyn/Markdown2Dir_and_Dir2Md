@@ -163,7 +163,7 @@ class PathProcessor:
                     # Use FileProcessor's should_process_path method through parent
                     if self.parent.file_processor.should_process_path(full_path):
                         files.append(rel_path)
-                        debug_print("Added file: {}".format(rel_path))
+                        # debug_print("Added file: {}".format(rel_path))
                     else:
                         debug_print("Skipped file: {}".format(rel_path))
 
