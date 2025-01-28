@@ -19,6 +19,7 @@ from .file_processor import FileProcessor
 from .path_processor import PathProcessor
 from .code_block_processor import CodeBlockProcessor
 from .markdown_processor import MarkdownProcessor
+from .project_settings_handler import ProjectSettings
 from .utils import debug_print, SUBLIME_AVAILABLE
 
 class MarkdownBaseCommand(sublime_plugin.TextCommand):
@@ -47,6 +48,7 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         self.path_processor = PathProcessor(self)
         self.code_processor = CodeBlockProcessor(self)
         self.markdown_processor = MarkdownProcessor(self)
+        self.project_settings = ProjectSettings(self)
         self.config = self.load_config() or {}
 
     def run(self, edit):
@@ -94,9 +96,11 @@ class MarkdownBaseCommand(sublime_plugin.TextCommand):
         MarkdownBaseCommand._config_cache = default_config
         return default_config
 
-    def clear_config_cache(self):
+    @classmethod
+    def clear_config_cache(cls):
         """Clear the cached configuration."""
-        MarkdownBaseCommand._config_cache = None
+        debug_print("Clearing config cache")
+        cls._config_cache = None
 
     def is_enabled(self):
         """Check if the command should be enabled."""
