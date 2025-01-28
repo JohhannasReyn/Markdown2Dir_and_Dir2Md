@@ -39,6 +39,17 @@ class CodeBlockProcessor:
         self.parent = parent
         self.view = parent.view
 
+    def is_markdown_fence(self, lang_or_filename, code):
+        """Check if this code block is a markdown fence that should be ignored."""
+        if lang_or_filename.lower() in ['md', 'markdown']:
+            return True
+
+        # Check if the code block contains markdown-style code fences
+        if '```' in code:
+            return True
+
+        return False
+
     def extract_code_blocks(self, content, output_dir, config):
         """Extract code blocks with improved error handling."""
         if not os.path.exists(output_dir):
@@ -48,25 +59,41 @@ class CodeBlockProcessor:
                 debug_print("Failed to create directory {}: {}".format(output_dir, str(e)))
                 return False
 
-        if not os.access(output_dir, os.W_OK):
-            debug_print("No write permission for directory {}".format(output_dir))
-            return False
-
         debug_print("Extracting code blocks to: {}".format(output_dir))
-        code_block_pattern = r'```([^\n]*)\n([\s\S]*?)```'
-        lines = content.split("\n")
-        matches = list(re.finditer(code_block_pattern, content))
+        code_block_pattern = r'^[ \t]*```([^\n]*)\n([\s\S]*?)```'
+        matches = list(re.finditer(code_block_pattern, content, re.MULTILINE))
         debug_print("Found {} code blocks".format(len(matches)))
+
+        processed_files = set()
 
         for match in matches:
             try:
-                lang_or_filename = match.group(1)
+                # Get full line containing the opening fence for better context
+                pos = match.start()
+                line_start = content.rfind('\n', 0, pos) + 1
+                line_end = content.find('\n', pos)
+                full_line = content[line_start:line_end]
+                debug_print("Processing code block starting with line: '{}'".format(
+                    full_line.replace(' ', '·')  # Make spaces visible in debug
+                ))
+
+                # Check if this is an intentionally indented block
+                if self.is_indented_code_block(match, content):
+                    debug_print("Skipping indented code block")
+                    continue
+
+                lang_or_filename = match.group(1).strip()
                 code = match.group(2)
                 debug_print("Processing block with lang/filename: {}".format(lang_or_filename))
 
+                # Skip markdown fences
+                if self.is_markdown_fence(lang_or_filename, code):
+                    debug_print("Skipping markdown fence block")
+                    continue
+
                 # Get the line before the code block for potential filename
-                start_pos = match.start()
-                preceding_line = lines[content[:start_pos].count("\n") - 1] if start_pos > 0 else None
+                lines = content[:match.start()].split('\n')
+                preceding_line = lines[-1] if lines else None
 
                 filename = self.get_filename_from_block(lang_or_filename, code, preceding_line, config)
                 debug_print("Resolved filename: {}".format(filename))
@@ -75,8 +102,19 @@ class CodeBlockProcessor:
                     debug_print("No filename found for block, skipping")
                     continue
 
+                # Skip files we've already processed
+                if filename in processed_files:
+                    debug_print("Already processed {}, skipping".format(filename))
+                    continue
+                processed_files.add(filename)
+
                 if self.should_ignore_block(lang_or_filename, code, filename, config):
                     debug_print("Skipping {} based on block ignore settings".format(filename))
+                    continue
+
+                # Skip files in .git directory
+                if '.git' in filename.split(os.sep):
+                    debug_print("Skipping file in .git directory: {}".format(filename))
                     continue
 
                 output_path = self.parent.path_processor.resolve_output_path(output_dir, filename, config)
@@ -85,30 +123,16 @@ class CodeBlockProcessor:
 
                 debug_print("Writing to: {}".format(output_path))
 
-                # Ensure parent directories exist
-                parent_dir = os.path.dirname(output_path)
-                if parent_dir and not os.path.exists(parent_dir):
-                    try:
-                        os.makedirs(parent_dir)
-                    except OSError as e:
-                        debug_print("Failed to create directory {}: {}".format(parent_dir, str(e)))
-                        continue
-
-                # Check write permissions
-                if os.path.exists(parent_dir) and not os.access(parent_dir, os.W_OK):
-                    debug_print("No write permission for directory {}".format(parent_dir))
+                # Write the file
+                code_content = code.strip()
+                try:
+                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(code_content)
+                    debug_print("Successfully created file: {}".format(output_path))
+                except Exception as e:
+                    debug_print("Error writing file {}: {}".format(output_path, str(e)))
                     continue
-
-                if os.path.exists(output_path) and config.get('attempt_injection', False):
-                    if self.inject_code_block(output_path, code.strip(), config):
-                        debug_print("Successfully injected code into {}".format(output_path))
-                        continue
-
-                # Try to write the file with backup
-                if not self.safe_write_file(output_path, code.strip()):
-                    continue
-
-                debug_print("Extracted: {}".format(output_path))
 
             except Exception as e:
                 debug_print("Error processing code block: {}".format(str(e)))
@@ -116,10 +140,48 @@ class CodeBlockProcessor:
 
         return True
 
+    def merge_code_blocks(self, existing_content, new_content):
+        """Merge two code blocks line by line, preserving order and adding new content."""
+        existing_lines = existing_content.strip().split('\n')
+        new_lines = new_content.strip().split('\n')
+        merged_lines = []
+        remaining_new_lines = new_lines.copy()
+
+        # Process each existing line
+        for existing_line in existing_lines:
+            merged_lines.append(existing_line)
+
+            # Try to find matching line in new content
+            for i, new_line in enumerate(remaining_new_lines):
+                if new_line == existing_line:
+                    # Add all lines before this match from new content
+                    merged_lines.extend(remaining_new_lines[:i])
+                    remaining_new_lines = remaining_new_lines[i+1:]
+                    break
+
+        # Add any remaining new lines at the end
+        if remaining_new_lines:
+            merged_lines.extend(remaining_new_lines)
+
+        return '\n'.join(merged_lines)
+
     def _write_code_block(self, output_path, code, config):
         """Write code block to file, handling conflicts according to config."""
         if os.path.exists(output_path):
-            self.handle_file_conflict(output_path, code, config)
+            if config.get('overwrite_on_build_2_md', True):
+                with open(output_path, "w", encoding='utf-8') as file:
+                    file.write(code)
+            else:
+                try:
+                    with open(output_path, "r", encoding='utf-8') as file:
+                        existing_content = file.read()
+                    merged_content = self.merge_code_blocks(existing_content, code)
+                    with open(output_path, "w", encoding='utf-8') as file:
+                        file.write(merged_content)
+                except Exception as e:
+                    debug_print("Error during merge, falling back to overwrite: {}".format(str(e)))
+                    with open(output_path, "w", encoding='utf-8') as file:
+                        file.write(code)
         else:
             with open(output_path, "w", encoding='utf-8') as file:
                 file.write(code)
@@ -217,40 +279,38 @@ class CodeBlockProcessor:
 
         return False
 
-    def inject_code_block(self, file_path, code_block, config):
-        """Inject code block into existing file with appropriate commenting."""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                existing_content = f.read()
+    def is_indented_code_block(self, match, content):
+        """Check if a code block is intentionally indented (should be treated as content)."""
+        # Get the position where the backticks start
+        pos = match.start()
 
-            ext = os.path.splitext(file_path)[1][1:]
-            start_comment, end_comment = self.parent.get_comment_syntax(file_path)
+        # Find the start of the line containing the backticks
+        line_start = content.rfind('\n', 0, pos)
+        if line_start == -1:  # If we're at the start of the file
+            line_start = 0
+        else:
+            line_start += 1  # Skip the newline character
 
-            start_idx, end_idx = self.find_code_injection_point(existing_content, code_block, ext)
+        # Get the content from start of line to the backticks
+        line_prefix = content[line_start:pos]
 
-            if start_idx is not None and end_idx is not None:
-                lines = existing_content.split('\n')
-                # Comment out existing section
-                commented_lines = self._comment_lines(lines[start_idx:end_idx + 1], start_comment, end_comment)
+        # Check if there's any indentation before the backticks
+        # Line prefix should be empty or just whitespace for a non-indented block
+        stripped_prefix = line_prefix.strip()
 
-                # Reconstruct file content
-                new_content = (
-                    '\n'.join(lines[:start_idx]) + '\n' +
-                    code_block + '\n' +
-                    '\n'.join(commented_lines) + '\n' +
-                    '\n'.join(lines[end_idx + 1:])
-                )
+        debug_print("Code block line prefix: '{}', stripped: '{}'".format(
+            line_prefix.replace(' ', '·'),  # Make spaces visible in debug output
+            stripped_prefix
+        ))
 
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(new_content)
+        # If there's any non-whitespace before the backticks, or
+        # if there's intentional indentation (4 spaces or tab)
+        if stripped_prefix or line_prefix.startswith('    ') or line_prefix.startswith('\t'):
+            debug_print("Determined code block is indented")
+            return True
 
-                return True
-
-            return False
-
-        except Exception as e:
-            debug_print("Error during code injection: {}".format(str(e)))
-            return False
+        debug_print("Determined code block is not indented")
+        return False
 
     def _comment_lines(self, lines, start_comment, end_comment):
         """Add comments to a set of lines using the appropriate syntax."""
@@ -423,3 +483,24 @@ class CodeBlockProcessor:
                 os.rename(backup_path, file_path)
             debug_print("Failed to write file: {}".format(str(e)))
             return False
+
+    def process_code_block(self, code):
+        """Process code content, handling nested code blocks through indentation."""
+        code_block_pattern = r'```([^\n]*)\n([\s\S]*?)```'
+
+        def replace_code_blocks(match):
+            block = match.group(0)
+            return self.parent.project_settings.indent_code_block(block)
+
+        # Replace any code blocks with indented versions
+        processed_code = re.sub(code_block_pattern, replace_code_blocks, code)
+        return processed_code
+
+    def format_code_block(self, content, filename):
+        """Format code block, properly handling nested code blocks."""
+        code_block_pattern = r'```([^\n]*)\n([\s\S]*?)```'
+
+        # Process the content to indent any nested code blocks
+        processed_content = self.process_code_block(content)
+
+        return "```{}\n{}\n```".format(filename,processed_content)
