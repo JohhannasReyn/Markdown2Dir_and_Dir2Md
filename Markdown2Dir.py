@@ -32,12 +32,44 @@ import sublime
 import sublime_plugin
 from .utils import debug_print, show_error_message, SUBLIME_AVAILABLE
 from .markdown_base_command import MarkdownBaseCommand
+from .project_settings_handler import ProjectSettings
 
 class Dir2MarkdownCommand(MarkdownBaseCommand):
+
+    def _load_settings_for_directory(self, directory):
+        """Load settings from the current directory or fallback to user settings."""
+        debug_print("Loading settings for directory: {}".format(directory))
+
+        # Get fresh settings using the base command's method
+        self.config = self.load_config()
+        debug_print("Loaded base settings")
+
+        # Create ProjectSettings instance
+        self.project_settings = ProjectSettings(self)
+
+        # Get markdown content if we're in a view
+        markdown_content = None
+        if self.view:
+            markdown_content = self.view.substr(sublime.Region(0, self.view.size()))
+
+        # Load or create project settings
+        local_settings = self.project_settings.ensure_project_settings_exist(directory, markdown_content)
+
+        if local_settings:
+            debug_print("Found project settings, updating configuration")
+            self.config = local_settings
+        else:
+            debug_print("No project settings found, using base settings")
+
     def _write_markdown_content(self, edit, markdown_content):
         try:
-            region = sublime.Region(0, self.view.size())
-            self.view.replace(edit, region, markdown_content)
+            # Always clear the entire view first if we're overwriting
+            if self.config.get('overwrite_on_build_2_md', True):
+                region = sublime.Region(0, self.view.size())
+                self.view.erase(edit, region)
+                debug_print("Cleared existing markdown content")
+
+            self.view.insert(edit, 0, markdown_content)
             debug_print("Updated current view with generated markdown")
         except Exception as e:
             debug_print("Error writing markdown content: {}".format(str(e)))
@@ -47,8 +79,6 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
         """Run the command in either Sublime Text or standalone mode."""
         debug_print("Starting Dir2Markdown command")
         try:
-            config = self.load_config()
-
             # Determine base directory and output file
             if self.view and self.view.file_name():
                 base_dir = os.path.dirname(self.view.file_name())
@@ -61,6 +91,27 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
 
             debug_print("Base directory: {}".format(base_dir))
             debug_print("Output file: {}".format(output_file))
+
+            # Load settings for the current directory first
+            self._load_settings_for_directory(base_dir)
+
+            # Set current markdown file in file processor
+            self.file_processor.set_current_markdown(output_file)
+
+            # Start building markdown content
+            markdown_content = "# Generated Markdown File\n\n"
+
+            # Add directory tree before settings if enabled
+            if self.config.get('output_directory_tree', True):
+                debug_print("Adding directory tree to markdown")
+                tree_content = self.markdown_processor.generate_directory_tree(base_dir, self.config)
+                markdown_content += "# Directory Structure\n\n```\n{}\n```\n\n".format(tree_content)
+
+            # Get and add settings content
+            markdown_content += "# Directory Settings\n\n"
+            settings_content = self.project_settings.get_or_create_settings_block(base_dir)
+            debug_print("Got settings content")
+            markdown_content += settings_content + "\n\n"
 
             # Get filtered files
             all_files = []
@@ -77,23 +128,23 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
                     all_files.append(rel_path)
                     debug_print("Found file: {}".format(rel_path))
 
-            if not all_files:
-                msg = "No files found in directory matching criteria"
-                debug_print(msg)
-                show_error_message(msg)
-                return
+            markdown_content += "# File Contents\n\n"
 
-            # Generate markdown content
-            markdown_content = self.markdown_processor.generate_markdown_content(
-                base_dir, all_files, config)
+            # Add remaining file content
+            for file_path in all_files:
+                try:
+                    full_path = os.path.join(base_dir, file_path)
+                    with open(full_path, 'r', encoding='utf-8') as f:
+                        file_content = f.read()
 
-            if not markdown_content:
-                msg = "Failed to generate markdown content"
-                debug_print(msg)
-                show_error_message(msg)
-                return
+                    block = self.markdown_processor.format_markdown_block(file_path, file_content, self.config)
+                    markdown_content += block + "\n"
+                    debug_print("Added content for: {}".format(file_path))
 
-            # Write the content with proper error handling
+                except Exception as e:
+                    debug_print("Error processing {}: {}".format(file_path, str(e)))
+
+            # Write the content
             if SUBLIME_AVAILABLE and edit is not None and self.view:
                 self._write_markdown_content(edit, markdown_content)
             else:
