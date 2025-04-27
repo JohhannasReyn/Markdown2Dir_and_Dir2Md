@@ -1,8 +1,11 @@
 [
-    // The key bindings for Markdown2Dir are enabled via the user's setting for this package,
-    // which can be set by going to `Preferences` -> `Package Settings` -> `Markdown2Dir` -> `Settings - User`
-    // Copy and paste the settings from `Settings - Default` into the `Settings - User` file then adjusting
-    // the values as needed.
+    // Don't make changes to this file directly as they can get wiped out when the
+	// plugin is updated. Instead transfer what you need to the 'Settings - User' file.
+    //
+    //                           ****** ALTERNATIVELY *****
+    //
+    // The key bindings for Markdown2Dir can be enabled via the user's setting for this package,
+    // then defined by going to `Preferences`->`Package Settings`->`Markdown2Dir`->`Settings - User`
     {
        "keys": ["ctrl+alt+m"],
        "command": "dir2_markdown",
