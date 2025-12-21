@@ -6,12 +6,14 @@ The `MarkdownProcessor` class handles all markdown-related operations with these
    - Code block formatting
    - File content integration
    - Consistent layout generation
+   - **NEW**: Nested code fence indentation handling
 
 2. Code Block Management:
    - Code block extraction
    - Block formatting according to conventions
    - Block insertion and updating
    - File synchronization
+   - **NEW**: Automatic indentation of nested fences
 
 3. Directory Tree Generation:
    - Visual tree structure creation
@@ -90,10 +92,58 @@ class MarkdownProcessor:
 
         return "\n".join(content)
 
+    def indent_nested_fences(self, content):
+        """
+        Add indentation to nested code fences found within file content.
+        This ensures that code fences within files are properly indented
+        when generating markdown, so they won't be extracted as separate files.
+
+        For example, if a file contains:
+        ```example
+            content
+        ```
+
+        It will be transformed to:
+            ```example
+                content
+            ```
+        """
+        # Pattern to match code fences (both opening and closing)
+        fence_pattern = r'^(```[^\n]*\n?)'
+
+        lines = content.split('\n')
+        result_lines = []
+        in_fence = False
+        fence_indent = '    '  # 4 spaces for one indentation level
+
+        for line in lines:
+            # Check if this line contains a fence marker
+            if line.strip().startswith('```'):
+                # Toggle fence state
+                in_fence = not in_fence
+                # Indent the fence marker
+                result_lines.append(fence_indent + line)
+            elif in_fence:
+                # We're inside a fence, indent the content
+                result_lines.append(fence_indent + line)
+            else:
+                # Outside fence, keep as is
+                result_lines.append(line)
+
+        return '\n'.join(result_lines)
+
     def format_markdown_block(self, file_path, content, config):
-        """Format a single file as a markdown code block."""
+        """
+        Format a single file as a markdown code block.
+        Automatically indents any nested code fences found in the content.
+        """
         naming_convention = config.get("file_naming_convention", "on_fence")
         lines = []
+
+        # Check if content contains code fences - if so, indent them
+        if '```' in content:
+            debug_print("File {} contains nested code fences, adding indentation".format(file_path))
+            content = self.indent_nested_fences(content)
 
         if naming_convention == "before_fence":
             lines.append(file_path)
@@ -237,6 +287,11 @@ class MarkdownProcessor:
                     debug_print("File exists: {}".format(file_path))
                     with open(file_path, 'r', encoding='utf-8') as f:
                         updated_code = f.read().strip()
+
+                        # If the file contains code fences, indent them for markdown
+                        if '```' in updated_code:
+                            updated_code = self.indent_nested_fences(updated_code)
+
                         content = content.replace(
                             match.group(0),
                             "```{}\n{}\n```".format(lang_or_filename or '', updated_code)
