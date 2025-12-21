@@ -1,8 +1,16 @@
 {
     // ===== General Guidelines =====
     // IMPORTANT: Configure these settings before starting your project.
-    // The plugin generates markdown from directories and vice versa using the rules below.
-    // Save the markdown file in the same directory as the project files to be processed.
+    // The plugin generates markdown from directories and vice versa using these rules.
+    // Alternatively, if you wish to configure a project with its own set of rules you
+    // can save a copy of custom rules in the projects root directory.
+    // Note: If a markdown file has been generated for a directory, a copy of the settings
+    // exists as a fallback inside the generated markdown, you can change these settings by
+    // either changing the settings file inside the projects root directory, or by deleting
+    // the generated project settings file and configuring the settings inside the markdown file.
+    // - If neither a settings file, or a generated markdown file is present in the projects root
+    // The users default settings (configurable from within sublime) are applied. 
+    // To configure the user default settings, from the Sublime menu bar select: `Preferences` ⇾ `Package Settings` ⇾ `Markdown2Dir` ⇾ `Settings`
 
     // ===== Settings =====
 
@@ -110,18 +118,6 @@
     // Options: true, false
     // When true, includes a visual directory tree at the start of generated markdown
     // Tree shows the structure of all processed files and directories
-
-    "enable_context_menu": false,
-    // Options: true, false
-    // Adds "Directory 2 Markdown" and "Markdown 2 Directory" to context menu
-    // Changes require restart of Sublime Text to take effect
-
-    "enable_key_bindings": false,
-    // Options: true, false
-    // Default key bindings (when enabled):
-    // - Directory 2 Markdown: ctrl+alt+m (command+alt+m on Mac)
-    // - Markdown 2 Directory: alt+shift+m
-    // Customize in Preferences -> Key Bindings
 
     "enable_debug_output": false
     // Options: true, false
