@@ -2,6 +2,7 @@
  *  The context menu is activated via the Markdown2Dir User settings
  *  By setting 'enable_context_menu' to true
  */
+ 
 [
     { "caption": "-" },
     {
