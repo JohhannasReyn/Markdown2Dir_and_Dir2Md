@@ -5,6 +5,7 @@ The `CodeBlockProcessor` class handles all code block-related operations with th
    - Pattern matching for markdown code blocks
    - Filename resolution from different conventions
    - Block filtering based on configuration
+   - **NEW**: Nested code fence indentation handling
 
 2. Code Injection:
    - Smart injection point detection
@@ -23,6 +24,7 @@ The `CodeBlockProcessor` class handles all code block-related operations with th
    - Minimum line count checking
    - Content-based filtering
    - Empty block detection
+   - **NEW**: Nested code fence detection and indentation level tracking
 
 5. Integration:
    - Works with PathProcessor for file operations
@@ -50,8 +52,63 @@ class CodeBlockProcessor:
 
         return False
 
+    def get_indentation_level(self, match, content):
+        """
+        Determine the indentation level of a code fence.
+        Returns the number of spaces/tabs before the opening fence.
+        """
+        pos = match.start()
+        line_start = content.rfind('\n', 0, pos)
+        if line_start == -1:
+            line_start = 0
+        else:
+            line_start += 1
+
+        line_prefix = content[line_start:pos]
+
+        # Count spaces (treating tabs as 4 spaces)
+        indent = 0
+        for char in line_prefix:
+            if char == ' ':
+                indent += 1
+            elif char == '\t':
+                indent += 4
+
+        return indent
+
+    def reduce_indentation(self, code, reduction_level):
+        """
+        Reduce the indentation of code content by the specified number of spaces.
+        Handles both spaces and tabs, converting tabs to spaces for consistency.
+
+        Args:
+            code: The code content to reduce indentation for
+            reduction_level: Number of spaces to remove from each line
+
+        Returns:
+            Code with reduced indentation
+        """
+        if reduction_level <= 0:
+            return code
+
+        lines = code.split('\n')
+        result_lines = []
+
+        for line in lines:
+            # Convert tabs to spaces for consistent handling
+            expanded_line = line.expandtabs(4)
+
+            # Calculate how many leading spaces this line has
+            leading_spaces = len(expanded_line) - len(expanded_line.lstrip(' '))
+
+            # Remove up to reduction_level spaces
+            spaces_to_remove = min(leading_spaces, reduction_level)
+            result_lines.append(expanded_line[spaces_to_remove:])
+
+        return '\n'.join(result_lines)
+
     def extract_code_blocks(self, content, output_dir, config):
-        """Extract code blocks with improved error handling."""
+        """Extract code blocks with improved error handling and nested fence support."""
         if not os.path.exists(output_dir):
             try:
                 os.makedirs(output_dir)
@@ -60,6 +117,8 @@ class CodeBlockProcessor:
                 return False
 
         debug_print("Extracting code blocks to: {}".format(output_dir))
+
+        # Pattern matches code fences at any indentation level
         code_block_pattern = r'^[ \t]*```([^\n]*)\n([\s\S]*?)```'
         matches = list(re.finditer(code_block_pattern, content, re.MULTILINE))
         debug_print("Found {} code blocks".format(len(matches)))
@@ -77,9 +136,13 @@ class CodeBlockProcessor:
                     full_line.replace(' ', '·')  # Make spaces visible in debug
                 ))
 
-                # Check if this is an intentionally indented block
-                if self.is_indented_code_block(match, content):
-                    debug_print("Skipping indented code block")
+                # Get the indentation level of this code fence
+                indent_level = self.get_indentation_level(match, content)
+                debug_print("Code fence indentation level: {} spaces".format(indent_level))
+
+                # Check if this is a nested code block (indented)
+                if indent_level > 0:
+                    debug_print("Skipping nested/indented code block (indent level: {})".format(indent_level))
                     continue
 
                 lang_or_filename = match.group(1).strip()
@@ -123,8 +186,12 @@ class CodeBlockProcessor:
 
                 debug_print("Writing to: {}".format(output_path))
 
+                # Process nested code fences in the content
+                # Any code fences inside should have their indentation reduced
+                processed_code = self.process_nested_fences(code)
+
                 # Write the file
-                code_content = code.strip()
+                code_content = processed_code.strip()
                 try:
                     os.makedirs(os.path.dirname(output_path), exist_ok=True)
                     with open(output_path, 'w', encoding='utf-8') as f:
@@ -139,6 +206,65 @@ class CodeBlockProcessor:
                 continue
 
         return True
+
+    def process_nested_fences(self, code):
+        """
+        Process nested code fences within a code block.
+        Reduces indentation of nested fences by one level (4 spaces).
+
+        For example, if the code contains:
+            ```example
+                ```nested
+                content
+                ```
+            ```
+
+        It will be transformed to:
+        ```example
+            ```nested
+            content
+            ```
+        ```
+        """
+        # Pattern to match indented code fences
+        nested_fence_pattern = r'^([ \t]+)(```[^\n]*\n)([\s\S]*?)(^[ \t]+```)'
+
+        def reduce_nested_fence(match):
+            leading_indent = match.group(1)
+            opening_fence = match.group(2)
+            fence_content = match.group(3)
+            closing_match = match.group(4)
+
+            # Calculate reduction (one indentation level = 4 spaces)
+            indent_length = len(leading_indent.expandtabs(4))
+            reduction = min(indent_length, 4)
+
+            debug_print("Found nested fence with {} spaces indent, reducing by {} spaces".format(
+                indent_length, reduction))
+
+            # Reduce indentation of the fence markers
+            new_leading_indent = leading_indent.expandtabs(4)[reduction:]
+
+            # Reduce indentation of the content
+            reduced_content = self.reduce_indentation(fence_content, reduction)
+
+            # Reconstruct the fence
+            return new_leading_indent + opening_fence + reduced_content + new_leading_indent + '```'
+
+        # Process all nested fences recursively until no more are found
+        prev_code = None
+        iterations = 0
+        max_iterations = 10  # Prevent infinite loops
+
+        while prev_code != code and iterations < max_iterations:
+            prev_code = code
+            code = re.sub(nested_fence_pattern, reduce_nested_fence, code, flags=re.MULTILINE)
+            iterations += 1
+
+        if iterations >= max_iterations:
+            debug_print("Warning: Maximum iterations reached in process_nested_fences")
+
+        return code
 
     def merge_code_blocks(self, existing_content, new_content):
         """Merge two code blocks line by line, preserving order and adding new content."""
@@ -501,6 +627,5 @@ class CodeBlockProcessor:
         code_block_pattern = r'```([^\n]*)\n([\s\S]*?)```'
 
         # Process the content to indent any nested code blocks
-        processed_content = self.process_code_block(content)
-
-        return "```{}\n{}\n```".format(filename,processed_content)
+        processed_content = self.process_nested_fences(content)
+        return processed_content
