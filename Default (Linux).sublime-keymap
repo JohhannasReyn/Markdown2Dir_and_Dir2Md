@@ -1,8 +1,10 @@
 [
-    // The key bindings for Markdown2Dir are enabled via the user's setting for this package,
-    // which can be set by going to `Preferences` -> `Package Settings` -> `Markdown2Dir` -> `Settings - User`
-    // Copy and paste the settings from `Settings - Default` into the `Settings - User` file then adjusting
-    // the values as needed.
+    // To use the suggested Key Bindings for Markdown2Dir...
+    // ...just change the '/*' to '//*' at the beginning of line 8, and that's it.
+    // "Markdown2Dir" will either attempt to generate files corresponding to the code fences from the
+    // focused file using the rules defined in this package's settings, or will generate the code
+    // fences in the currently focused markdown file from each of the files inside the same parent
+    // directory as the currently focus markdown file.
     /*
     {
        "keys": ["ctrl+alt+m"],
