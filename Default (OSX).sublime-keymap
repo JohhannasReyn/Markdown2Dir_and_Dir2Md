@@ -26,4 +26,5 @@
             { "key": "file_name", "operator": "regex_match", "operand": ".*\\.(md|markdown|mdown|mkd|mkdn|txt)$", "match_all": true }
         ]
     }
-]//*/
+//*/
+]
