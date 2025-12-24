@@ -1,8 +1,8 @@
 /**
- *  The context menu is activated via the Markdown2Dir User settings
- *  By setting 'enable_context_menu' to true
+ *  The context menu is activated by putting a '/' in front of the comment
+ *  on line 5, e.g. '/*' ⇾ '//*' 
  */
- 
+/*
 [
     { "caption": "-" },
     {
@@ -40,4 +40,4 @@
         ]
     },
     { "caption": "-" }
-]
+]//*/
