@@ -26,7 +26,7 @@ void test_function() {
 
 project/sub_dir/README.md
 ```project/sub_dir/README.md
-project/sub_dir/README.md
+// project/sub_dir/README.md
 
 All three file/path conventions are used in this test which is designed to test the parsers
 handling of nested code blocks. 
