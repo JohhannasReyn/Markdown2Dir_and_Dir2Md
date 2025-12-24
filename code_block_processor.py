@@ -42,12 +42,23 @@ class CodeBlockProcessor:
         self.view = parent.view
 
     def is_markdown_fence(self, lang_or_filename, code):
-        """Check if this code block is a markdown fence that should be ignored."""
+        """
+        Check if this code block should be skipped as a markdown fence.
+        
+        IMPORTANT: We only skip if:
+        1. The language is explicitly 'md' or 'markdown' AND
+        2. There's NO file extension in the identifier
+        
+        This allows .md FILES to be processed even if they contain code fences.
+        """
+        # If it has a file extension (contains a dot), it's a file, not just a language
+        if '.' in lang_or_filename:
+            # It's a filename, not just a language identifier
+            # Don't skip it even if it's a .md file
+            return False
+        
+        # No file extension - check if it's a markdown language identifier
         if lang_or_filename.lower() in ['md', 'markdown']:
-            return True
-
-        # Check if the code block contains markdown-style code fences
-        if '```' in code:
             return True
 
         return False
@@ -56,30 +67,14 @@ class CodeBlockProcessor:
         """
         Measure the indentation of a line in spaces.
         Converts tabs to 4 spaces for consistency.
-        
-        Args:
-            line: The line to measure
-            
-        Returns:
-            Number of leading spaces (with tabs converted to spaces)
         """
-        # Expand tabs to spaces for consistent measurement
         expanded = line.expandtabs(4)
-        # Count leading spaces
         stripped = expanded.lstrip(' ')
         return len(expanded) - len(stripped)
 
     def reduce_indentation(self, code, reduction_level):
         """
         Reduce the indentation of code content by the specified number of spaces.
-        Handles both spaces and tabs, converting tabs to spaces for consistency.
-        
-        Args:
-            code: The code content to reduce indentation for
-            reduction_level: Number of spaces to remove from each line
-            
-        Returns:
-            Code with reduced indentation
         """
         if reduction_level <= 0:
             return code
@@ -104,34 +99,25 @@ class CodeBlockProcessor:
         """
         Process nested code fences within a code block.
         Recursively reduces indentation of nested fences by one level (4 spaces).
-        
-        This function finds code fences that are indented and reduces their
-        indentation by 4 spaces, along with their content.
         """
         lines = code.split('\n')
         result_lines = []
         inside_fence = False
-        fence_indent = 0
         
         for line in lines:
-            # Measure the indentation of this line
             line_indent = self.measure_indentation(line)
-            
-            # Check if this line contains a fence marker
             stripped = line.lstrip()
+            
             if stripped.startswith('```'):
                 if not inside_fence:
                     # Opening fence
                     if line_indent > 0:
-                        # This is a nested fence, reduce indentation
                         inside_fence = True
-                        fence_indent = line_indent
                         reduced_indent = max(0, line_indent - 4)
                         result_lines.append(' ' * reduced_indent + stripped)
                         debug_print("Reducing nested fence from {} to {} spaces".format(
                             line_indent, reduced_indent))
                     else:
-                        # Top-level fence (shouldn't happen in nested processing)
                         result_lines.append(line)
                 else:
                     # Closing fence
@@ -142,19 +128,17 @@ class CodeBlockProcessor:
                         result_lines.append(line)
                     inside_fence = False
             elif inside_fence and line_indent > 0:
-                # Content inside a nested fence, reduce indentation
+                # Content inside a nested fence
                 reduced_indent = max(0, line_indent - 4)
-                # Preserve the content after the original indentation
                 content = line.expandtabs(4)[line_indent:]
                 result_lines.append(' ' * reduced_indent + content)
             else:
-                # Regular line, keep as is
                 result_lines.append(line)
         
         return '\n'.join(result_lines)
 
     def extract_code_blocks(self, content, output_dir, config):
-        """Extract code blocks with improved error handling and nested fence support."""
+        """Extract code blocks with proper nested fence handling."""
         if not os.path.exists(output_dir):
             try:
                 os.makedirs(output_dir)
@@ -164,53 +148,50 @@ class CodeBlockProcessor:
 
         debug_print("Extracting code blocks to: {}".format(output_dir))
         
-        # CRITICAL: Pattern must ONLY match fences at start of line (no leading whitespace)
-        # Using (?m) for multiline mode, but ^ will match start of line
-        # We explicitly check for NO leading whitespace
+        # Pattern ONLY matches fences at column 0 (no leading whitespace)
         code_block_pattern = r'^```([^\n]*)\n([\s\S]*?)^```'
         matches = list(re.finditer(code_block_pattern, content, re.MULTILINE))
-        debug_print("Found {} potential code blocks".format(len(matches)))
+        debug_print("Found {} potential code blocks at column 0".format(len(matches)))
 
         processed_files = set()
 
         for match in matches:
             try:
-                # Get the position and check for leading whitespace on the line
+                # Double-check that fence is truly at column 0
                 pos = match.start()
-                
-                # Find the start of the line containing the opening fence
                 line_start = content.rfind('\n', 0, pos)
                 if line_start == -1:
                     line_start = 0
                 else:
                     line_start += 1
                 
-                # Check if there's any whitespace between line start and fence
+                # Check for any whitespace before the fence
                 prefix = content[line_start:pos]
                 
                 if prefix.strip() == '' and len(prefix) > 0:
-                    # There's whitespace before the fence - this is nested, skip it
-                    debug_print("Skipping indented code block (has {} spaces/tabs before fence)".format(len(prefix)))
+                    # There's whitespace - skip this indented fence
+                    debug_print("Skipping fence with {} chars whitespace before it".format(len(prefix)))
                     continue
                 
-                # Also check via measuring the line directly
+                # Measure indentation as additional safety check
                 line_end = content.find('\n', pos)
                 full_line = content[line_start:line_end if line_end != -1 else len(content)]
                 line_indent = self.measure_indentation(full_line)
                 
                 if line_indent > 0:
-                    debug_print("Skipping indented code block (measured {} spaces indent)".format(line_indent))
+                    debug_print("Skipping fence with {} spaces indentation".format(line_indent))
                     continue
 
-                debug_print("Processing top-level code block (no indentation)")
+                debug_print("Processing top-level code block (column 0)")
 
                 lang_or_filename = match.group(1).strip()
                 code = match.group(2)
-                debug_print("Processing block with lang/filename: '{}'".format(lang_or_filename))
+                debug_print("Block identifier: '{}'".format(lang_or_filename))
 
-                # Skip markdown fences
+                # Check if this should be skipped as a markdown fence
+                # (language="md" with no filename)
                 if self.is_markdown_fence(lang_or_filename, code):
-                    debug_print("Skipping markdown fence block")
+                    debug_print("Skipping markdown language fence (no filename)")
                     continue
 
                 # Get the line before the code block for potential filename
@@ -246,7 +227,7 @@ class CodeBlockProcessor:
                 debug_print("Writing to: {}".format(output_path))
 
                 # Process nested code fences in the content
-                # Any code fences inside should have their indentation reduced
+                # Reduce indentation of any nested fences by 4 spaces
                 processed_code = self.process_nested_fences(code)
 
                 # Write the file
@@ -275,19 +256,15 @@ class CodeBlockProcessor:
         merged_lines = []
         remaining_new_lines = new_lines.copy()
 
-        # Process each existing line
         for existing_line in existing_lines:
             merged_lines.append(existing_line)
 
-            # Try to find matching line in new content
             for i, new_line in enumerate(remaining_new_lines):
                 if new_line == existing_line:
-                    # Add all lines before this match from new content
                     merged_lines.extend(remaining_new_lines[:i])
                     remaining_new_lines = remaining_new_lines[i+1:]
                     break
 
-        # Add any remaining new lines at the end
         if remaining_new_lines:
             merged_lines.extend(remaining_new_lines)
 
@@ -386,9 +363,16 @@ class CodeBlockProcessor:
                 return True
 
         # Check for readme or properties content
-        if 'readme' in blocks_ignored and any(x in code.lower() for x in ['readme', 'README']):
-            debug_print("Ignoring readme block")
-            return True
+        # NOTE: Only check content, not filename, to avoid false positives
+        if 'readme' in blocks_ignored:
+            # Only ignore if the content is predominantly readme-like
+            # (not just a file that happens to be named README.md)
+            if filename and 'readme' in filename.lower():
+                # It's a README file - don't auto-ignore based on content
+                pass
+            elif any(x in code.lower() for x in ['# readme', '## readme']):
+                debug_print("Ignoring readme content block")
+                return True
 
         if 'properties' in blocks_ignored and any(x in code.lower() for x in ['properties', 'PROPERTIES']):
             debug_print("Ignoring properties block")
@@ -409,30 +393,22 @@ class CodeBlockProcessor:
 
     def is_indented_code_block(self, match, content):
         """Check if a code block is intentionally indented (should be treated as content)."""
-        # Get the position where the backticks start
         pos = match.start()
 
-        # Find the start of the line containing the backticks
         line_start = content.rfind('\n', 0, pos)
-        if line_start == -1:  # If we're at the start of the file
+        if line_start == -1:
             line_start = 0
         else:
-            line_start += 1  # Skip the newline character
+            line_start += 1
 
-        # Get the content from start of line to the backticks
         line_prefix = content[line_start:pos]
-
-        # Check if there's any indentation before the backticks
-        # Line prefix should be empty or just whitespace for a non-indented block
         stripped_prefix = line_prefix.strip()
 
         debug_print("Code block line prefix: '{}', stripped: '{}'".format(
-            line_prefix.replace(' ', '·'),  # Make spaces visible in debug output
+            line_prefix.replace(' ', '·'),
             stripped_prefix
         ))
 
-        # If there's any non-whitespace before the backticks, or
-        # if there's intentional indentation (4 spaces or tab)
         if stripped_prefix or line_prefix.startswith('    ') or line_prefix.startswith('\t'):
             debug_print("Determined code block is indented")
             return True
@@ -475,7 +451,6 @@ class CodeBlockProcessor:
                     return parts[1].split('(')[0]
             return None
 
-        # Get the name of the function/class being defined in code block
         code_def_name = None
         for line in code_lines:
             name = get_definition_name(line)
@@ -486,7 +461,6 @@ class CodeBlockProcessor:
         if not code_def_name:
             return None, None
 
-        # Find matching definition in file
         start_idx = None
         end_idx = None
         current_indent = None
@@ -499,7 +473,6 @@ class CodeBlockProcessor:
                 continue
 
             if start_idx is not None:
-                # Check if we've returned to the same or lower indentation level
                 if line.strip() and len(line) - len(line.lstrip()) <= current_indent:
                     end_idx = i - 1
                     break
@@ -517,7 +490,6 @@ class CodeBlockProcessor:
         first_line = code_lines[0].strip()
         last_line = code_lines[-1].strip()
 
-        # Find starting point
         start_idx = None
         for i, line in enumerate(file_lines):
             if line.strip() == first_line:
@@ -527,15 +499,13 @@ class CodeBlockProcessor:
         if start_idx is None:
             return None, None
 
-        # If last line isn't just a closing brace
         if last_line != '}':
             for i in range(start_idx + 1, len(file_lines)):
                 if file_lines[i].strip() == last_line:
                     return start_idx, i
 
-        # Try brace counting for complex blocks
         brace_count = 0
-        for line in code_lines[1:]:  # Start after first line
+        for line in code_lines[1:]:
             brace_count += line.count('{')
             brace_count -= line.count('}')
 
@@ -587,7 +557,6 @@ class CodeBlockProcessor:
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(code)
 
-
     def safe_write_file(self, file_path, content):
         """Write file with backup mechanism."""
         backup_path = "{}.bak".format(file_path)
@@ -620,14 +589,10 @@ class CodeBlockProcessor:
             block = match.group(0)
             return self.parent.project_settings.indent_code_block(block)
 
-        # Replace any code blocks with indented versions
         processed_code = re.sub(code_block_pattern, replace_code_blocks, code)
         return processed_code
 
     def format_code_block(self, content, filename):
         """Format code block, properly handling nested code blocks."""
-        code_block_pattern = r'```([^\n]*)\n([\s\S]*?)```'
-
-        # Process the content to indent any nested code blocks
         processed_content = self.process_nested_fences(content)
         return processed_content
