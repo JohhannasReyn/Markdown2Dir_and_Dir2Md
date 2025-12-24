@@ -67,3 +67,4 @@ ENV/
 
 # Sublime package artifacts
 *.sublime-package
+sublime-package.json
