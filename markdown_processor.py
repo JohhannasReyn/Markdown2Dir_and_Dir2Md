@@ -33,6 +33,12 @@ The `MarkdownProcessor` class handles all markdown-related operations with these
    - Uses PathProcessor for path operations
    - Maintains consistent debug logging
 
+FIXES IN THIS VERSION:
+# Complete Diagnostic and Fix - All Three Issues
+1. Settings file excluded from direcwinget install
+   - id Microsoft.PowerShell.Preview
+   - source winget
+
 """
 import os
 import re
@@ -47,13 +53,12 @@ class MarkdownProcessor:
 
     def extract_code_blocks_from_markdown(self):
         """Extract filenames of code blocks from the markdown file."""
-        file_content = self.view.file_name()  # Replace with actual file reading logic
+        file_content = self.view.file_name()
         code_block_pattern = r'```(?:[^\n]*)\n([\s\S]*?)```'
         matches = re.findall(code_block_pattern, file_content)
         filenames = set()
 
         for match in matches:
-            # Extract the filename from the code block
             filename_line = match.splitlines()[0].strip()
             filenames.add(filename_line)
 
@@ -92,30 +97,34 @@ class MarkdownProcessor:
 
         return "\n".join(content)
 
+    def is_settings_file(self, filename):
+        """
+        Check if a file is a settings file that should be excluded from
+        the directory tree and file contents.
+        
+        Settings files are handled specially in the "Directory Settings" section.
+        """
+        # Get just the filename without path
+        basename = os.path.basename(filename)
+        
+        # Check if it's a .sublime-settings file
+        if basename.endswith('.sublime-settings'):
+            debug_print("Identified settings file: {}".format(filename))
+            return True
+        
+        return False
+
     def indent_nested_fences(self, content):
         """
         Add indentation to nested code fences found within file content.
         This ensures that code fences within files are properly indented
         when generating markdown, so they won't be extracted as separate files.
-
-        For example, if a file contains:
-        ```example
-            content
-        ```
-
-        It will be transformed to:
-            ```example
-                content
-            ```
         """
-        # Pattern to match code fences (both opening and closing)
-        fence_pattern = r'^(```[^\n]*\n?)'
-
         lines = content.split('\n')
         result_lines = []
         in_fence = False
         fence_indent = '    '  # 4 spaces for one indentation level
-
+        
         for line in lines:
             # Check if this line contains a fence marker
             if line.strip().startswith('```'):
@@ -129,7 +138,7 @@ class MarkdownProcessor:
             else:
                 # Outside fence, keep as is
                 result_lines.append(line)
-
+        
         return '\n'.join(result_lines)
 
     def format_markdown_block(self, file_path, content, config):
@@ -160,7 +169,12 @@ class MarkdownProcessor:
         return "\n".join(lines)
 
     def generate_directory_tree(self, base_dir, config):
-        """Generate a visual directory tree structure with improved filtering."""
+        """
+        Generate a visual directory tree structure with improved filtering.
+        
+        IMPORTANT: Excludes .sublime-settings files from the tree since they
+        are shown in the "Directory Settings" section.
+        """
         debug_print("Generating directory tree for: {}".format(base_dir))
 
         def get_directory_with_included_files(dir_path):
@@ -169,6 +183,11 @@ class MarkdownProcessor:
             for root, dirs, files in os.walk(dir_path):
                 for file in files:
                     full_path = os.path.join(root, file)
+                    
+                    # Skip settings files - they're in Directory Settings section
+                    if self.is_settings_file(file):
+                        continue
+                    
                     if self.parent.file_processor.should_process_path(full_path, is_dir=False):
                         has_included_files = True
                         break
@@ -203,6 +222,11 @@ class MarkdownProcessor:
                         if get_directory_with_included_files(full_path):
                             dirs.append(item)
                     else:
+                        # Skip settings files
+                        if self.is_settings_file(item):
+                            debug_print("Excluding settings file from tree: {}".format(item))
+                            continue
+                        
                         # Apply file filters
                         if self.parent.file_processor.should_process_path(full_path, is_dir=False):
                             files.append(item)
@@ -287,11 +311,11 @@ class MarkdownProcessor:
                     debug_print("File exists: {}".format(file_path))
                     with open(file_path, 'r', encoding='utf-8') as f:
                         updated_code = f.read().strip()
-
+                        
                         # If the file contains code fences, indent them for markdown
                         if '```' in updated_code:
                             updated_code = self.indent_nested_fences(updated_code)
-
+                        
                         content = content.replace(
                             match.group(0),
                             "```{}\n{}\n```".format(lang_or_filename or '', updated_code)
