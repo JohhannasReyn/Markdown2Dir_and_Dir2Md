@@ -58,3 +58,13 @@ ENV/
 
 # Logs
 *.log
+
+# generated
+/all_classes.md
+
+# local/dev
+/tests/
+/.sublime-package/
+
+# Sublime package artifacts
+*.sublime-package
