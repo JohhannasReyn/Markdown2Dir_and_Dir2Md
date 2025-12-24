@@ -1,0 +1,18 @@
+{
+    "directories_2_include": [], 
+    "attempt_injection": false, 
+    "partial_names_2_include": [], 
+    "include_system_folders": false, 
+    "files_2_include": [], 
+    "handle_file_conflicts": "prepend_and_comment", 
+    "files_2_ignore": [], 
+    "include_nested_directories": true, 
+    "extensions_2_ignore": [], 
+    "enable_debug_output": true, 
+    "extensions_2_include": [], 
+    "blocks_ignored": [], 
+    "output_directory_tree": true, 
+    "file_naming_convention": "on_fence", 
+    "partial_names_2_ignore": [], 
+    "directories_2_ignore": []
+}
