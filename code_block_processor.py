@@ -308,11 +308,22 @@ class CodeBlockProcessor:
             if not text:
                 debug_print("  extract_path got empty text")
                 return None
+            
+            # Strip leading/trailing whitespace first
+            text = text.strip()
+            
+            # Pattern matches: optional drive letter, path with slashes, filename with extension
             path_pattern = r'(?:[a-zA-Z]:)?(?:[\\\/])?(?:[\w\s.-]+[\\\/])*[\w\s.-]+\.\w+'
             match = re.search(path_pattern, text)
-            result = match.group(0) if match else None
-            debug_print("  extracted path from text: '{}'".format(result))
-            return result
+            
+            if match:
+                # Strip any leading/trailing whitespace from the match
+                result = match.group(0).strip()
+                debug_print("  extracted path from text: '{}'".format(result))
+                return result
+            
+            debug_print("  no path found in text")
+            return None
 
         naming_convention = config.get("file_naming_convention", "on_fence")
         debug_print("  using naming convention: {}".format(naming_convention))

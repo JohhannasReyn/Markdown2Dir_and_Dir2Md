@@ -148,21 +148,32 @@ class MarkdownProcessor:
         """
         naming_convention = config.get("file_naming_convention", "on_fence")
         lines = []
-
+        
+        # Determine if content needs indentation (contains code fences)
+        needs_indentation = '```' in content
+    
         # Check if content contains code fences - if so, indent them
-        if '```' in content:
+        if needs_indentation:
             debug_print("File {} contains nested code fences, adding indentation".format(file_path))
             content = self.indent_nested_fences(content)
-
+    
         if naming_convention == "before_fence":
-            lines.append(file_path)
+            # Indent the path line if content has nested fences
+            if needs_indentation:
+                lines.append("    " + file_path)  # 4-space indent
+            else:
+                lines.append(file_path)
             lines.append("```{}".format(self.parent.get_file_language(file_path)))
         elif naming_convention == "after_fence":
             lines.append("```{}".format(self.parent.get_file_language(file_path)))
-            lines.append("// {}".format(file_path))
+            # Indent the path comment if content has nested fences
+            if needs_indentation:
+                lines.append("    // {}".format(file_path))
+            else:
+                lines.append("// {}".format(file_path))
         else:  # on_fence
             lines.append("```{}".format(file_path))
-
+    
         lines.append(content.rstrip())
         lines.append("```")
         lines.append("")  # Empty line after block
