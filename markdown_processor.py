@@ -139,7 +139,7 @@ class MarkdownProcessor:
                 # Outside fence, keep as is
                 result_lines.append(line)
         
-        return '\n'.join(result_lines)
+        return '\n'.join(result_lines)`
 
     def format_markdown_block(self, file_path, content, config):
         """
