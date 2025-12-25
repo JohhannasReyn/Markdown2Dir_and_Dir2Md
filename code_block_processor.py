@@ -305,19 +305,20 @@ class CodeBlockProcessor:
             return None
 
         def extract_path_from_text(text):
+            """Extract file path from text, stripping whitespace."""
             if not text:
                 debug_print("  extract_path got empty text")
                 return None
             
-            # Strip leading/trailing whitespace first
+            # CRITICAL: Strip whitespace BEFORE pattern matching
             text = text.strip()
             
-            # Pattern matches: optional drive letter, path with slashes, filename with extension
+            # Pattern matches paths with optional drive letter and slashes
             path_pattern = r'(?:[a-zA-Z]:)?(?:[\\\/])?(?:[\w\s.-]+[\\\/])*[\w\s.-]+\.\w+'
             match = re.search(path_pattern, text)
             
             if match:
-                # Strip any leading/trailing whitespace from the match
+                # CRITICAL: Strip whitespace from the matched result
                 result = match.group(0).strip()
                 debug_print("  extracted path from text: '{}'".format(result))
                 return result

@@ -113,22 +113,22 @@ class Dir2MarkdownCommand(MarkdownBaseCommand):
             debug_print("Got settings content")
             markdown_content += settings_content + "\n\n"
 
-            # Get filtered files
+            # Get filtered files (EXCLUDING settings files)
             all_files = []
             for root, _, files in os.walk(base_dir):
                 if not self.file_processor.should_process_path(root, is_dir=True):
                     continue
-            
+
                 for filename in sorted(files):
-                    # Skip settings files - they're in Directory Settings section
+                    # CRITICAL: Skip settings files - they're handled in Directory Settings
                     if filename.endswith('.sublime-settings'):
-                        debug_print("Excluding settings file from iteration: {}".format(filename))
+                        debug_print("Excluding settings file from file contents: {}".format(filename))
                         continue
                     
                     full_path = os.path.join(root, filename)
                     if not self.file_processor.should_process_path(full_path):
                         continue
-            
+
                     rel_path = os.path.relpath(full_path, base_dir)
                     all_files.append(rel_path)
                     debug_print("Found file: {}".format(rel_path))

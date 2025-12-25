@@ -145,35 +145,39 @@ class MarkdownProcessor:
         """
         Format a single file as a markdown code block.
         Automatically indents any nested code fences found in the content.
+        ALSO indents before_fence path lines when content has nested fences.
         """
         naming_convention = config.get("file_naming_convention", "on_fence")
         lines = []
         
-        # Determine if content needs indentation (contains code fences)
-        needs_indentation = '```' in content
-    
-        # Check if content contains code fences - if so, indent them
-        if needs_indentation:
+        # Check if content contains code fences (needs indentation)
+        has_nested_fences = '```' in content
+
+        # If content has code fences, indent them
+        if has_nested_fences:
             debug_print("File {} contains nested code fences, adding indentation".format(file_path))
             content = self.indent_nested_fences(content)
-    
+
+        # Format based on naming convention
         if naming_convention == "before_fence":
-            # Indent the path line if content has nested fences
-            if needs_indentation:
-                lines.append("    " + file_path)  # 4-space indent
+            # CRITICAL: Indent the path line if content has nested fences
+            if has_nested_fences:
+                lines.append("    " + file_path)  # 4-space indent for consistency
             else:
                 lines.append(file_path)
             lines.append("```{}".format(self.parent.get_file_language(file_path)))
+            
         elif naming_convention == "after_fence":
             lines.append("```{}".format(self.parent.get_file_language(file_path)))
-            # Indent the path comment if content has nested fences
-            if needs_indentation:
+            # CRITICAL: Indent the comment if content has nested fences
+            if has_nested_fences:
                 lines.append("    // {}".format(file_path))
             else:
                 lines.append("// {}".format(file_path))
-        else:  # on_fence
+                
+        else:  # on_fence (default)
             lines.append("```{}".format(file_path))
-    
+
         lines.append(content.rstrip())
         lines.append("```")
         lines.append("")  # Empty line after block
